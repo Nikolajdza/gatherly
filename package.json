@@ -1,0 +1,17 @@
+{
+  "name": "gatherly",
+  "private": true,
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/api-client build && pnpm --filter @gatherly/api prisma:generate && pnpm --filter @gatherly/api build && pnpm --filter @gatherly/web build",
+    "dev": "pnpm --filter @gatherly/shared build && pnpm --parallel --filter @gatherly/shared --filter @gatherly/api --filter @gatherly/web dev",
+    "dev:api": "pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/api dev",
+    "dev:web": "pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/web dev",
+    "test": "pnpm --filter @gatherly/shared test && pnpm --filter @gatherly/api test",
+    "typecheck": "pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/api-client build && pnpm --filter @gatherly/api prisma:generate && pnpm -r --if-present typecheck",
+    "db:migrate": "pnpm --filter @gatherly/api prisma:migrate"
+  }
+}

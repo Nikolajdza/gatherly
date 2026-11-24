@@ -1,0 +1,445 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ExperienceType {
+  gift_registry
+  secret_santa
+  task_list
+
+  @@map("experience_type")
+}
+
+enum ExperienceStatus {
+  draft
+  active
+  archived
+
+  @@map("experience_status")
+}
+
+enum Visibility {
+  private
+  unlisted
+  public
+  invite_only
+
+  @@map("visibility")
+}
+
+enum MemberRole {
+  owner
+  editor
+  participant
+  viewer
+
+  @@map("member_role")
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  revoked
+  expired
+
+  @@map("invite_status")
+}
+
+enum ReservationStatus {
+  active
+  cancelled
+
+  @@map("reservation_status")
+}
+
+enum ItemKind {
+  product
+  experience
+
+  @@map("item_kind")
+}
+
+enum ItemPriority {
+  low
+  medium
+  high
+
+  @@map("item_priority")
+}
+
+enum DrawStatus {
+  open
+  drawn
+  locked
+
+  @@map("draw_status")
+}
+
+enum TaskStatus {
+  open
+  done
+
+  @@map("task_status")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+
+  @@map("task_priority")
+}
+
+enum NotificationType {
+  invitation_accepted
+  draw_completed
+  reservation_created
+
+  @@map("notification_type")
+}
+
+model Profile {
+  id                String   @id @db.Uuid
+  email             String   @unique
+  displayName       String   @map("display_name")
+  avatarUrl         String?  @map("avatar_url")
+  preferredLanguage String   @default("sr") @map("preferred_language")
+  timezone          String   @default("Europe/Belgrade")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  ownedExperiences Experience[]             @relation("ExperienceOwner")
+  memberships      ExperienceMember[]
+  invitesSent      ExperienceInvite[]       @relation("InviteCreator")
+  invitesAccepted  ExperienceInvite[]       @relation("InviteAccepter")
+  itemsCreated     ExperienceItem[]
+  reservations     ItemReservation[]
+  pledges          GiftContribution[]
+  tasksCreated     Task[]                   @relation("TaskCreator")
+  taskAssignments  TaskAssignee[]
+  santaEntries     SecretSantaParticipant[]
+  notifications    Notification[]
+  aiImports        AiImport[]
+  aiUsage          AiUsage[]
+  attachments      Attachment[]
+
+  @@map("profiles")
+}
+
+model Experience {
+  id              String           @id @default(uuid()) @db.Uuid
+  ownerId         String           @map("owner_id") @db.Uuid
+  type            ExperienceType
+  template        String
+  templateVersion Int              @default(1) @map("template_version")
+  title           String
+  slug            String           @unique
+  description     String           @default("")
+  status          ExperienceStatus @default(draft)
+  visibility      Visibility       @default(unlisted)
+  eventDate       DateTime?        @map("event_date") @db.Date
+  timezone        String           @default("Europe/Belgrade")
+  coverImageUrl   String?          @map("cover_image_url")
+  config          Json             @default("{}")
+  themeConfig     Json             @default("{}") @map("theme_config")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  owner         Profile            @relation("ExperienceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members       ExperienceMember[]
+  invites       ExperienceInvite[]
+  items         ExperienceItem[]
+  tasks         Task[]
+  attachments   Attachment[]
+  draw          SecretSantaDraw?
+  aiImports     AiImport[]
+  notifications Notification[]
+
+  @@index([ownerId])
+  @@index([type, template])
+  @@map("experiences")
+}
+
+model ExperienceMember {
+  id           String     @id @default(uuid()) @db.Uuid
+  experienceId String     @map("experience_id") @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  role         MemberRole
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  user       Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([experienceId, userId])
+  @@index([userId])
+  @@map("experience_members")
+}
+
+model ExperienceInvite {
+  id           String       @id @default(uuid()) @db.Uuid
+  experienceId String       @map("experience_id") @db.Uuid
+  tokenHash    String       @unique @map("token_hash")
+  role         MemberRole
+  email        String?
+  status       InviteStatus @default(pending)
+  expiresAt    DateTime     @map("expires_at")
+  createdById  String       @map("created_by_id") @db.Uuid
+  acceptedById String?      @map("accepted_by_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at")
+  revokedAt    DateTime?    @map("revoked_at")
+
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  createdBy  Profile    @relation("InviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  acceptedBy Profile?   @relation("InviteAccepter", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([experienceId, status])
+  @@map("experience_invites")
+}
+
+model ExperienceItem {
+  id                String       @id @default(uuid()) @db.Uuid
+  experienceId      String       @map("experience_id") @db.Uuid
+  createdById       String       @map("created_by_id") @db.Uuid
+  title             String
+  description       String       @default("")
+  url               String?
+  imageUrl          String?      @map("image_url")
+  priceCents        Int?         @map("price_cents")
+  currency          String?
+  category          String?
+  priority          ItemPriority @default(medium)
+  quantity          Int          @default(1)
+  itemKind          ItemKind     @default(product) @map("item_kind")
+  isGroupGift       Boolean      @default(false) @map("is_group_gift")
+  targetAmountCents Int?         @map("target_amount_cents")
+  sortOrder         Int          @default(0) @map("sort_order")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  experience    Experience         @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  createdBy     Profile            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  reservations  ItemReservation[]
+  contributions GiftContribution[]
+
+  @@index([experienceId, sortOrder])
+  @@map("experience_items")
+}
+
+model ItemReservation {
+  id           String            @id @default(uuid()) @db.Uuid
+  itemId       String            @map("item_id") @db.Uuid
+  userId       String            @map("user_id") @db.Uuid
+  quantity     Int               @default(1)
+  status       ReservationStatus @default(active)
+  activeItemId String?           @unique @map("active_item_id") @db.Uuid
+  note         String            @default("")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  cancelledAt  DateTime?         @map("cancelled_at")
+
+  item ExperienceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, status])
+  @@index([userId])
+  @@map("item_reservations")
+}
+
+model GiftContribution {
+  id          String   @id @default(uuid()) @db.Uuid
+  itemId      String   @map("item_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  amountCents Int      @map("amount_cents")
+  note        String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  item ExperienceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("gift_contributions")
+}
+
+model SecretSantaDraw {
+  id                    String     @id @default(uuid()) @db.Uuid
+  experienceId          String     @unique @map("experience_id") @db.Uuid
+  budgetCents           Int?       @map("budget_cents")
+  currency              String     @default("EUR")
+  drawDate              DateTime?  @map("draw_date") @db.Date
+  purchaseDeadline      DateTime?  @map("purchase_deadline") @db.Date
+  status                DrawStatus @default(open)
+  organizerParticipates Boolean    @default(true) @map("organizer_participates")
+  drawnAt               DateTime?  @map("drawn_at")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+
+  experience   Experience               @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  participants SecretSantaParticipant[]
+  exclusions   SecretSantaExclusion[]
+  assignments  SecretSantaAssignment[]
+
+  @@map("secret_santa_draws")
+}
+
+model SecretSantaParticipant {
+  id       String   @id @default(uuid()) @db.Uuid
+  drawId   String   @map("draw_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  wishlist Json     @default("{\"items\":[]}")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  draw               SecretSantaDraw         @relation(fields: [drawId], references: [id], onDelete: Cascade)
+  user               Profile                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignmentsGiven   SecretSantaAssignment[] @relation("AssignmentGiver")
+  assignmentsReceived SecretSantaAssignment[] @relation("AssignmentRecipient")
+  exclusionsLow      SecretSantaExclusion[]  @relation("ExclusionLow")
+  exclusionsHigh     SecretSantaExclusion[]  @relation("ExclusionHigh")
+
+  @@unique([drawId, userId])
+  @@map("secret_santa_participants")
+}
+
+model SecretSantaExclusion {
+  id                String @id @default(uuid()) @db.Uuid
+  drawId            String @map("draw_id") @db.Uuid
+  participantLowId  String @map("participant_low_id") @db.Uuid
+  participantHighId String @map("participant_high_id") @db.Uuid
+
+  draw            SecretSantaDraw        @relation(fields: [drawId], references: [id], onDelete: Cascade)
+  participantLow  SecretSantaParticipant @relation("ExclusionLow", fields: [participantLowId], references: [id], onDelete: Cascade)
+  participantHigh SecretSantaParticipant @relation("ExclusionHigh", fields: [participantHighId], references: [id], onDelete: Cascade)
+
+  @@unique([drawId, participantLowId, participantHighId])
+  @@map("secret_santa_exclusions")
+}
+
+model SecretSantaAssignment {
+  id                     String   @id @default(uuid()) @db.Uuid
+  drawId                 String   @map("draw_id") @db.Uuid
+  giverParticipantId     String   @unique @map("giver_participant_id") @db.Uuid
+  recipientParticipantId String   @unique @map("recipient_participant_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  draw      SecretSantaDraw        @relation(fields: [drawId], references: [id], onDelete: Cascade)
+  giver     SecretSantaParticipant @relation("AssignmentGiver", fields: [giverParticipantId], references: [id], onDelete: Cascade)
+  recipient SecretSantaParticipant @relation("AssignmentRecipient", fields: [recipientParticipantId], references: [id], onDelete: Cascade)
+
+  @@map("secret_santa_assignments")
+}
+
+model Task {
+  id           String       @id @default(uuid()) @db.Uuid
+  experienceId String       @map("experience_id") @db.Uuid
+  parentId     String?      @map("parent_id") @db.Uuid
+  creatorId    String       @map("creator_id") @db.Uuid
+  title        String
+  notes        String       @default("")
+  status       TaskStatus   @default(open)
+  priority     TaskPriority @default(medium)
+  category     String?
+  dueDate      DateTime?    @map("due_date") @db.Date
+  sortOrder    Int          @default(0) @map("sort_order")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  experience Experience     @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  creator    Profile        @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  parent     Task?          @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Task[]         @relation("Subtasks")
+  labels     TaskLabel[]
+  assignees  TaskAssignee[]
+
+  @@index([experienceId, status])
+  @@map("tasks")
+}
+
+model TaskLabel {
+  id     String @id @default(uuid()) @db.Uuid
+  taskId String @map("task_id") @db.Uuid
+  label  String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, label])
+  @@map("task_labels")
+}
+
+model TaskAssignee {
+  id     String @id @default(uuid()) @db.Uuid
+  taskId String @map("task_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  task Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@map("task_assignees")
+}
+
+model Attachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  experienceId String?  @map("experience_id") @db.Uuid
+  ownerId      String   @map("owner_id") @db.Uuid
+  bucket       String
+  path         String
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  kind         String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  experience Experience? @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  owner      Profile     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([experienceId])
+  @@map("attachments")
+}
+
+model AiImport {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  experienceId String?  @map("experience_id") @db.Uuid
+  sourceUrl    String   @map("source_url")
+  status       String
+  extracted    Json
+  error        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user       Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experience Experience? @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ai_imports")
+}
+
+model AiUsage {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  feature   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ai_usage")
+}
+
+model Notification {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  experienceId String?          @map("experience_id") @db.Uuid
+  type         NotificationType
+  payload      Json             @default("{}")
+  readAt       DateTime?        @map("read_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  user       Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experience Experience? @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}

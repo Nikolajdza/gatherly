@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: gatherly-api
+    runtime: node
+    plan: starter
+    buildCommand: pnpm install && pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/api prisma:generate && pnpm --filter @gatherly/api build
+    startCommand: pnpm --filter @gatherly/api start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: AI_DAILY_LIMIT
+        value: "60"
+      - key: SWAGGER_ENABLED
+        value: "false"
