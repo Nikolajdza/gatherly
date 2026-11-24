@@ -15,7 +15,23 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  app.enableCors({ origin: origins, credentials: true });
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (origins.includes(origin)) return callback(null, true);
+      // Allow Vercel production + preview deployments without manual env edits.
+      try {
+        const host = new URL(origin).hostname;
+        if (host === "gatherly-tau-five.vercel.app" || host.endsWith(".vercel.app")) {
+          return callback(null, true);
+        }
+      } catch {
+        // ignore invalid Origin
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
+    credentials: true,
+  });
 
   const swaggerEnabled = process.env.NODE_ENV !== "production" || process.env.SWAGGER_ENABLED === "true";
   if (swaggerEnabled) {
