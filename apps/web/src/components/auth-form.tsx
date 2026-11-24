@@ -82,7 +82,11 @@ export function AuthForm({
       setError(signInError.message);
       return;
     }
-    router.push(safeNext(search.get("next"), `/${locale}/dashboard`));
+    // Ensure cookies are written before navigation so the marketing header and
+    // dashboard middleware see the same authenticated session.
+    await supabase.auth.getUser();
+    const next = safeNext(search.get("next"), `/${locale}/dashboard`);
+    router.replace(next);
     router.refresh();
   }
 

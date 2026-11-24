@@ -7,36 +7,11 @@ import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
+import { useSessionUser } from "../auth-provider";
 import { LanguageMenu } from "../language-menu";
 import { Brand } from "../ui/brand";
 
-type SessionUser = { email: string | null; name: string | null };
-
-export function useSessionUser() {
-  const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
-  useEffect(() => {
-    const supabase = createBrowserSupabase();
-    if (!supabase) {
-      setUser(null);
-      return;
-    }
-    const toUser = (session: { user: { email?: string; user_metadata?: Record<string, unknown> } } | null): SessionUser | null =>
-      session
-        ? {
-            email: session.user.email ?? null,
-            name: typeof session.user.user_metadata?.display_name === "string"
-              ? session.user.user_metadata.display_name
-              : typeof session.user.user_metadata?.full_name === "string"
-                ? session.user.user_metadata.full_name
-                : null,
-          }
-        : null;
-    supabase.auth.getSession().then(({ data }) => setUser(toUser(data.session)));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(toUser(session)));
-    return () => data.subscription.unsubscribe();
-  }, []);
-  return user;
-}
+export { useSessionUser } from "../auth-provider";
 
 export function SiteHeader({ locale, dictionary }: { locale: Locale; dictionary: Dictionary }) {
   const t = dictionary.nav;
@@ -90,6 +65,7 @@ export function SiteHeader({ locale, dictionary }: { locale: Locale; dictionary:
   ] as const;
 
   const initials = (user?.name || user?.email || "G").slice(0, 1).toUpperCase();
+  const signedIn = Boolean(user);
 
   return (
     <header className={`site-header ${scrolled || open ? "scrolled" : ""}`}>
@@ -102,6 +78,11 @@ export function SiteHeader({ locale, dictionary }: { locale: Locale; dictionary:
                 {label}
               </Link>
             ))}
+            {signedIn ? (
+              <Link href={`/${locale}/dashboard`} aria-current={pathname.startsWith(`/${locale}/dashboard`) ? "page" : undefined}>
+                {t.dashboard}
+              </Link>
+            ) : null}
           </nav>
           <div className="nav-actions">
             <LanguageMenu locale={locale} label={t.language} />
@@ -160,13 +141,17 @@ export function SiteHeader({ locale, dictionary }: { locale: Locale; dictionary:
           {links.map(([href, label]) => (
             <Link key={href} href={href}>{label}</Link>
           ))}
-          {user ? (
+          {signedIn ? (
             <>
               <Link href={`/${locale}/dashboard`}>{t.dashboard}</Link>
+              <Link href={`/${locale}/dashboard/experiences/new`}>{dictionary.dash.create}</Link>
               <button type="button" onClick={signOut}>{dictionary.dash.logout}</button>
             </>
           ) : (
-            <Link href={`/${locale}/login`}>{t.login}</Link>
+            <>
+              <Link href={`/${locale}/login`}>{t.login}</Link>
+              <Link href={`/${locale}/register`}>{t.signup}</Link>
+            </>
           )}
         </nav>
       </div>

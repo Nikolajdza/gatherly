@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type { z } from "zod";
 import { createInviteSchema } from "@gatherly/shared";
 import { PrismaService } from "../../database/prisma.service";
+import { MailService } from "../mail/mail.service";
 import { MembershipsService } from "../memberships/memberships.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PermissionsService } from "../permissions/permissions.service";
@@ -16,6 +18,8 @@ export class InvitationsService {
     private readonly permissions: PermissionsService,
     private readonly memberships: MembershipsService,
     private readonly notifications: NotificationsService,
+    private readonly mail: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async list(experienceId: string, userId: string) {
@@ -41,7 +45,25 @@ export class InvitationsService {
         createdById: userId,
       },
     });
-    return { ...this.present(invite), token, urlPath: `/invite/${token}` };
+
+    const urlPath = `/invite/${token}`;
+    let emailSent = false;
+    if (invite.email && this.mail.enabled) {
+      const [experience, profile] = await Promise.all([
+        this.prisma.experience.findUnique({ where: { id: experienceId }, select: { title: true } }),
+        this.prisma.profile.findUnique({ where: { id: userId }, select: { displayName: true, preferredLanguage: true } }),
+      ]);
+      const origin = (this.config.get<string>("WEB_ORIGIN") || "https://gatherly-tau-five.vercel.app").replace(/\/$/, "");
+      const locale = profile?.preferredLanguage || "en";
+      emailSent = await this.mail.sendInvite({
+        to: invite.email,
+        experienceTitle: experience?.title ?? "Gatherly",
+        inviteUrl: `${origin}/${locale}${urlPath}`,
+        inviterName: profile?.displayName,
+      });
+    }
+
+    return { ...this.present(invite), token, urlPath, emailSent };
   }
 
   async revoke(id: string, userId: string) {

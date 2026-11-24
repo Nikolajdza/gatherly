@@ -29,3 +29,9 @@ services:
         value: "60"
       - key: SWAGGER_ENABLED
         value: "false"
+      - key: WEB_ORIGIN
+        value: https://gatherly-tau-five.vercel.app
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        value: Gatherly <onboarding@resend.dev>

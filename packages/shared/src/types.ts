@@ -95,7 +95,7 @@ export type InvitePreview = {
   emailRestricted: boolean;
 };
 
-export type CreatedInvite = InviteRecord & { token: string; urlPath: string };
+export type CreatedInvite = InviteRecord & { token: string; urlPath: string; emailSent?: boolean };
 
 export type SecretSantaView = {
   id: string;

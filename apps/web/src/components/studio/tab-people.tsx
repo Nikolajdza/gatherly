@@ -2,14 +2,14 @@
 
 import type { InviteRecord, MemberRecord } from "@gatherly/shared";
 import { Copy, Mail, Send, UserMinus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDate } from "@/i18n/config";
 import type { StudioContext } from "./studio";
 
 type InviteRole = "editor" | "participant" | "viewer";
 
 export function PeopleTab({ ctx }: { ctx: StudioContext }) {
-  const { t, backend, locale } = ctx;
+  const { t, backend, locale, experience } = ctx;
   const pp = t.studio.people;
   const [members, setMembers] = useState<MemberRecord[] | null>(null);
   const [invites, setInvites] = useState<InviteRecord[]>([]);
@@ -17,6 +17,7 @@ export function PeopleTab({ ctx }: { ctx: StudioContext }) {
   const [email, setEmail] = useState("");
   const [days, setDays] = useState("14");
   const [link, setLink] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -34,8 +35,13 @@ export function PeopleTab({ ctx }: { ctx: StudioContext }) {
     event.preventDefault();
     setBusy(true);
     try {
-      const created = await backend.createInvite({ role, email: email.trim() || null, expiresInDays: Math.max(1, Math.min(90, Number(days) || 14)) });
+      const created = await backend.createInvite({
+        role,
+        email: email.trim() || null,
+        expiresInDays: Math.max(1, Math.min(90, Number(days) || 14)),
+      });
       setLink(`${window.location.origin}/${locale}${created.urlPath}`);
+      setEmailSent(Boolean(created.emailSent));
       setEmail("");
       await load();
     } catch (error) {
@@ -49,6 +55,40 @@ export function PeopleTab({ ctx }: { ctx: StudioContext }) {
     await navigator.clipboard.writeText(value);
     ctx.notify(t.common.copied);
   }
+
+  const shareMessage = useMemo(() => {
+    if (!link) return "";
+    return `${pp.shareMessage} “${experience.title}” — ${link}`;
+  }, [experience.title, link, pp.shareMessage]);
+
+  const channels = link
+    ? [
+        {
+          name: "WhatsApp",
+          color: "#25d366",
+          href: `https://wa.me/?text=${encodeURIComponent(shareMessage)}`,
+          glyph: "W",
+        },
+        {
+          name: "Telegram",
+          color: "#229ed9",
+          href: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(shareMessage)}`,
+          glyph: <Send size={15} />,
+        },
+        {
+          name: "Viber",
+          color: "#7360f2",
+          href: `viber://forward?text=${encodeURIComponent(shareMessage)}`,
+          glyph: "V",
+        },
+        {
+          name: "Email",
+          color: "#1f6b52",
+          href: `mailto:${email || ""}?subject=${encodeURIComponent(experience.title)}&body=${encodeURIComponent(shareMessage)}`,
+          glyph: <Mail size={15} />,
+        },
+      ]
+    : [];
 
   if (!members) return <div className="skeleton" style={{ height: 320 }} />;
 
@@ -126,20 +166,34 @@ export function PeopleTab({ ctx }: { ctx: StudioContext }) {
         <div className="radio-cards">
           {(["editor", "participant", "viewer"] as const).map((value) => (
             <button key={value} type="button" className="radio-card" aria-pressed={role === value} onClick={() => setRole(value)} style={{ padding: 12 }}>
-              <span className={`task-check`} style={{ borderRadius: "50%", background: role === value ? "var(--wine)" : "#fff", borderColor: role === value ? "var(--wine)" : undefined }} />
+              <span className={`task-check`} style={{ borderRadius: "50%", background: role === value ? "var(--jade)" : "#fff", borderColor: role === value ? "var(--jade)" : undefined }} />
               <span><strong>{t.roles[value]}</strong><small>{pp.roleHelp[value]}</small></span>
             </button>
           ))}
         </div>
-        <label className="field">{pp.inviteEmail}<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" /></label>
+        <label className="field">
+          {pp.inviteEmail}
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" />
+          <span className="field-hint">{pp.inviteEmailHint}</span>
+        </label>
         <label className="field">{pp.inviteDays}<input type="number" min={1} max={90} value={days} onChange={(event) => setDays(event.target.value)} /></label>
         <button className="btn btn-primary" type="submit" disabled={busy}><Send size={16} /> {pp.invite}</button>
         {link ? (
           <div className="notice sage stack-sm">
-            <span className="small">{pp.inviteCreated}</span>
+            <span className="small">{emailSent ? pp.inviteEmailed : pp.inviteCreated}</span>
             <div className="input-group">
               <input className="input" readOnly value={link} onFocus={(event) => event.target.select()} />
               <button className="btn btn-secondary btn-icon" type="button" onClick={() => copy(link)} aria-label={t.common.copy}><Copy size={16} /></button>
+            </div>
+            <div>
+              <p className="small" style={{ margin: "4px 0 10px", fontWeight: 650 }}>{pp.shareVia}</p>
+              <div className="share-buttons">
+                {channels.map((channel) => (
+                  <a key={channel.name} className="share-btn" href={channel.href} target="_blank" rel="noopener noreferrer">
+                    <i style={{ background: channel.color }}>{channel.glyph}</i> {channel.name}
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}

@@ -41,49 +41,48 @@ export function Hero({ locale, t }: Props) {
   return (
     <section className="hero hero-dark">
       <Aurora />
+      <div className="hero-bleed" aria-hidden>
+        <Image src="/images/hero.jpg" alt="" fill priority sizes="100vw" className="hero-bleed-img" />
+        <span className="beam" />
+      </div>
       <div className="container hero-grid">
-        <div>
+        <div className="hero-copy">
           <Reveal>
+            <p className="hero-brand">Gatherly</p>
+          </Reveal>
+          <Reveal delay={0.06}>
             <span className="pill-badge"><Sparkles size={14} /> {h.eyebrow}</span>
           </Reveal>
-          <Reveal delay={0.08}>
+          <Reveal delay={0.12}>
             <h1 className="serif hero-title">
               {h.titleA}
               <br />
               <span className="text-gradient">{h.titleB}</span>
             </h1>
           </Reveal>
-          <Reveal delay={0.16}>
+          <Reveal delay={0.2}>
             <p className="lede">{h.lede}</p>
           </Reveal>
-          <Reveal delay={0.24}>
+          <Reveal delay={0.28}>
             <SessionCta locale={locale} primary={h.primary} secondary={h.secondary} dashboard={t.nav.dashboard} secondaryHref={`/${locale}/demo`} />
           </Reveal>
-          <Reveal delay={0.32}>
+          <Reveal delay={0.36}>
             <div className="trust">
               <div className="avatar-stack" aria-hidden>
-                <span style={{ background: "linear-gradient(140deg,#b4566a,#7a3040)" }}>A</span>
-                <span style={{ background: "linear-gradient(140deg,#8aa07d,#5f7354)" }}>M</span>
-                <span style={{ background: "linear-gradient(140deg,#e2b66e,#b08948)" }}>J</span>
-                <span style={{ background: "linear-gradient(140deg,#6b5aa8,#3d2f6e)" }}>+</span>
+                <span style={{ background: "linear-gradient(140deg,#3fa884,#1f6b52)" }}>A</span>
+                <span style={{ background: "linear-gradient(140deg,#e8a05a,#c47a3a)" }}>M</span>
+                <span style={{ background: "linear-gradient(140deg,#7fd4b0,#2a8f6d)" }}>J</span>
+                <span style={{ background: "linear-gradient(140deg,#0f3d30,#163528)" }}>+</span>
               </div>
               {h.trust}
             </div>
           </Reveal>
         </div>
-        <div className="hero-visual">
-          <Reveal delay={0.1} className="hero-frame-wrap">
-            <Tilt className="hero-frame" max={5}>
-              <div className="hero-photo">
-                <Image src="/images/hero.jpg" alt="" fill priority sizes="(min-width: 920px) 50vw, 100vw" />
-              </div>
-              <span className="beam" aria-hidden />
-            </Tilt>
-          </Reveal>
+        <div className="hero-visual" aria-hidden>
           <Float className="float-card float-a" delay={0.4}>
             <div className="row">
               <span className="badge badge-wine">{h.cardBaby}</span>
-              <Gift size={16} color="#b4566a" />
+              <Gift size={16} color="#1f6b52" />
             </div>
             <p className="serif" style={{ fontSize: 24, margin: "10px 0 0", lineHeight: 1.05 }}>{h.cardBabyTitle}</p>
             <div className="countdown-mini">
@@ -109,16 +108,6 @@ export function Hero({ locale, t }: Props) {
               </div>
               <span className="badge">{h.cardAvailable}</span>
             </div>
-          </Float>
-          <Float className="float-card float-c" delay={1}>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <strong style={{ fontSize: 14 }}>{h.cardList}</strong>
-              <span className="small muted">8/11 {h.cardDone}</span>
-            </div>
-            <div className="progress sage"><span style={{ width: "72%" }} /></div>
-            <p className="small muted" style={{ margin: "12px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
-              <Sparkles size={14} color="#b08948" /> 24 {h.statGifts}
-            </p>
           </Float>
         </div>
       </div>

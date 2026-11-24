@@ -209,7 +209,7 @@ export function demoBackend(template: DemoTemplate): StudioBackend {
           createdAt: new Date().toISOString(),
         };
         draft.invites.unshift(invite);
-        return { ...invite, token, urlPath: `/invite/${token}` };
+        return { ...invite, token, urlPath: `/invite/${token}`, emailSent: false };
       }),
     revokeInvite: (id) =>
       mutate((draft) => {

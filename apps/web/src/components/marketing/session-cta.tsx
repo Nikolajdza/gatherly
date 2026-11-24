@@ -2,7 +2,7 @@
 
 import { ArrowRight, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
-import { useSessionUser } from "./site-header";
+import { useSessionUser } from "../auth-provider";
 
 export function SessionCta({
   locale,

@@ -10,6 +10,7 @@ import { ExperiencesModule } from "./modules/experiences/experiences.module";
 import { GiftRegistryModule } from "./modules/gift-registry/gift-registry.module";
 import { HealthModule } from "./modules/health/health.module";
 import { InvitationsModule } from "./modules/invitations/invitations.module";
+import { MailModule } from "./modules/mail/mail.module";
 import { MembershipsModule } from "./modules/memberships/memberships.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
@@ -26,6 +27,7 @@ import { UploadsModule } from "./modules/uploads/uploads.module";
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
     PermissionsModule,
+    MailModule,
     ProfilesModule,
     HealthModule,
     ExperiencesModule,

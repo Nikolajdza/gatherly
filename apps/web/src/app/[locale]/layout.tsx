@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import { Caveat, Cormorant_Garamond, Fraunces, Manrope, Playfair_Display } from "next/font/google";
+import { Caveat, Newsreader, Outfit, Syne } from "next/font/google";
 import { notFound } from "next/navigation";
+import { AuthProvider } from "@/components/auth-provider";
 import { isLocale, locales } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
+import { serverUser } from "@/lib/supabase/server";
 import "../globals.css";
 
-const sans = Manrope({ subsets: ["latin", "latin-ext", "cyrillic"], variable: "--font-sans" });
-const serif = Cormorant_Garamond({
-  subsets: ["latin", "latin-ext", "cyrillic"],
+const sans = Outfit({ subsets: ["latin", "latin-ext"], variable: "--font-sans" });
+const serif = Newsreader({
+  subsets: ["latin", "latin-ext"],
   weight: ["500", "600", "700"],
   style: ["normal", "italic"],
   variable: "--font-serif",
 });
-const display = Fraunces({ subsets: ["latin", "latin-ext"], variable: "--font-display" });
-const head = Playfair_Display({ subsets: ["latin", "latin-ext", "cyrillic"], style: ["normal", "italic"], variable: "--font-head" });
+const display = Syne({ subsets: ["latin", "latin-ext"], weight: ["500", "600", "700", "800"], variable: "--font-display" });
+const head = Syne({ subsets: ["latin", "latin-ext"], weight: ["600", "700", "800"], variable: "--font-head" });
 const script = Caveat({ subsets: ["latin", "latin-ext", "cyrillic"], weight: ["500", "600"], variable: "--font-script" });
 
 export function generateStaticParams() {
@@ -40,9 +42,12 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
+  const user = await serverUser();
   return (
     <html lang={locale === "sr" ? "sr-Latn" : locale} className={`${sans.variable} ${serif.variable} ${display.variable} ${head.variable} ${script.variable}`}>
-      <body>{children}</body>
+      <body>
+        <AuthProvider initialUser={user}>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

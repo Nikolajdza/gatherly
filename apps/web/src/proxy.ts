@@ -57,8 +57,9 @@ async function refresh(request: NextRequest) {
     },
   });
 
-  const claims = await supabase.auth.getClaims();
-  return { response, userId: claims.data?.claims.sub ?? null };
+  // Prefer getUser() so the JWT is validated and cookies stay in sync on Vercel.
+  const { data } = await supabase.auth.getUser();
+  return { response, userId: data.user?.id ?? null };
 }
 
 function preferredLocale(request: NextRequest) {
