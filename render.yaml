@@ -3,8 +3,8 @@ services:
     name: gatherly-api
     runtime: node
     plan: starter
-    buildCommand: pnpm install && pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/api prisma:generate && pnpm --filter @gatherly/api build
-    startCommand: pnpm --filter @gatherly/api start
+    buildCommand: pnpm install && node scripts/fix-nestjs-interfaces.cjs && pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/api prisma:generate && pnpm --filter @gatherly/api build
+    startCommand: node scripts/fix-nestjs-interfaces.cjs && pnpm --filter @gatherly/api start
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_VERSION

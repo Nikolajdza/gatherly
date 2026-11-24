@@ -8,17 +8,6 @@ function patchPackage(pkgRoot) {
   if (!pkg.exports || typeof pkg.exports !== "object") return false;
 
   const next = { ...pkg.exports };
-  let changed = false;
-  if (next["./interfaces"] !== "./interfaces/index.js") {
-    next["./interfaces"] = "./interfaces/index.js";
-    changed = true;
-  }
-  if (next["./interfaces.js"] !== "./interfaces/index.js") {
-    next["./interfaces.js"] = "./interfaces/index.js";
-    changed = true;
-  }
-  if (!changed) return false;
-
   // Keep explicit mappings ahead of the catch-all `./*` → `./*.js` rule.
   pkg.exports = {
     ".": next["."],
@@ -29,21 +18,51 @@ function patchPackage(pkgRoot) {
     "./*.js": next["./*.js"],
     "./*": next["./*"],
   };
-
   fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
-  const bogus = path.join(pkgRoot, "interfaces.js");
-  if (fs.existsSync(bogus) && fs.statSync(bogus).isFile()) fs.unlinkSync(bogus);
+
+  // Node 24+/26 sometimes resolves the catch-all to a physical interfaces.js.
+  // Provide a real re-export so both export maps and file lookups succeed.
+  const shim = path.join(pkgRoot, "interfaces.js");
+  const shimSource = "module.exports = require('./interfaces/index.js');\n";
+  if (!fs.existsSync(shim) || fs.readFileSync(shim, "utf8") !== shimSource) {
+    fs.writeFileSync(shim, shimSource);
+  }
   return true;
 }
 
-const root = path.join(__dirname, "..", "node_modules");
-let fixed = 0;
-const pnpm = path.join(root, ".pnpm");
-if (fs.existsSync(pnpm)) {
-  for (const entry of fs.readdirSync(pnpm)) {
-    if (!entry.startsWith("@nestjs+common@")) continue;
-    if (patchPackage(path.join(pnpm, entry, "node_modules", "@nestjs", "common"))) fixed += 1;
+function walk(dir, out) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "@nestjs") {
+        const common = path.join(full, "common");
+        if (fs.existsSync(path.join(common, "package.json"))) out.push(common);
+      } else if (entry.name !== ".bin" && entry.name !== "node_modules") {
+        walk(full, out);
+      } else if (entry.name === "node_modules") {
+        walk(full, out);
+      }
+    }
   }
 }
-if (patchPackage(path.join(root, "@nestjs", "common"))) fixed += 1;
+
+const root = path.join(__dirname, "..", "node_modules");
+const targets = [];
+walk(root, targets);
+// Deduplicate real paths (pnpm symlinks).
+const seen = new Set();
+let fixed = 0;
+for (const target of targets) {
+  let real = target;
+  try {
+    real = fs.realpathSync(target);
+  } catch {
+    continue;
+  }
+  if (seen.has(real)) continue;
+  seen.add(real);
+  if (patchPackage(real)) fixed += 1;
+}
 if (fixed) console.log(`nestjs interfaces export patch applied (${fixed})`);
+else console.log("nestjs interfaces export patch: nothing to patch");
