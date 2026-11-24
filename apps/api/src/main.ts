@@ -16,7 +16,7 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (!origin) return callback(null, true);
       if (origins.includes(origin)) return callback(null, true);
       // Allow Vercel production + preview deployments without manual env edits.
