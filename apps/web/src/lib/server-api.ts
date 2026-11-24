@@ -13,17 +13,27 @@ export type Workspace =
   | { state: "unavailable" }
   | { state: "ready"; profile: Profile | null; experiences: ExperienceSummary[] };
 
+async function fetchWorkspace(): Promise<Workspace> {
+  const client = serverApi();
+  const [profile, experiences] = await Promise.all([
+    client.profile.me().catch(() => null),
+    client.experiences.list(),
+  ]);
+  return { state: "ready", profile, experiences: experiences.items };
+}
+
 /** Loads everything the dashboard shell needs once per request. */
 export const loadWorkspace = cache(async (): Promise<Workspace> => {
   if (!supabaseEnv()) return { state: "not-configured" };
-  const client = serverApi();
   try {
-    const [profile, experiences] = await Promise.all([
-      client.profile.me().catch(() => null),
-      client.experiences.list(),
-    ]);
-    return { state: "ready", profile, experiences: experiences.items };
+    return await fetchWorkspace();
   } catch {
-    return { state: "unavailable" };
+    // One retry helps when the free Render instance is cold-starting.
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return await fetchWorkspace();
+    } catch {
+      return { state: "unavailable" };
+    }
   }
 });

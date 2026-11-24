@@ -16,7 +16,7 @@ import {
 } from "@gatherly/shared";
 import { ArrowLeft, ArrowRight, Check, Rocket, Save } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PublicExperience } from "@/components/experience/public-experience";
 import { TemplateCard } from "@/components/ui/template-card";
@@ -32,7 +32,6 @@ function isTemplateId(value: string | null): value is TemplateId {
 
 export function ExperienceWizard({ locale, dictionary: t }: { locale: Locale; dictionary: Dictionary }) {
   const search = useSearchParams();
-  const router = useRouter();
   const initial = search.get("template");
   const w = t.wizard;
   const [step, setStep] = useState(isTemplateId(initial) ? 1 : 0);
@@ -125,10 +124,10 @@ export function ExperienceWizard({ locale, dictionary: t }: { locale: Locale; di
     setError(null);
     try {
       const created = await browserApi().experiences.create(parsed.data);
-      router.push(`/${locale}/dashboard/experiences/${created.id}`);
-      router.refresh();
-    } catch {
-      setError(t.common.configured);
+      window.location.assign(`/${locale}/dashboard/experiences/${created.id}`);
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : t.dash.apiDownText;
+      setError(message);
       setBusy(false);
     }
   }

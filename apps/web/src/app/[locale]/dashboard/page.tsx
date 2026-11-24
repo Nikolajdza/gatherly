@@ -19,7 +19,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   const d = t.dash;
   const workspace = await loadWorkspace();
 
-  if (workspace.state !== "ready") {
+  if (workspace.state === "not-configured") {
     return (
       <div className="stack-lg">
         <div className="page-title"><div><p className="eyebrow">{d.workspace}</p><h1 className="serif">{d.notConfiguredTitle}</h1><p>{d.notConfiguredText}</p></div></div>
@@ -40,6 +40,27 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
     );
   }
 
+  if (workspace.state === "unavailable") {
+    return (
+      <div className="stack-lg">
+        <div className="page-title">
+          <div>
+            <p className="eyebrow">{d.workspace}</p>
+            <h1 className="serif">{d.apiDownTitle}</h1>
+            <p>{d.apiDownText}</p>
+          </div>
+        </div>
+        <div className="card card-pad stack" style={{ maxWidth: 560 }}>
+          <p className="muted" style={{ margin: 0, lineHeight: 1.65 }}>{d.apiDownHint}</p>
+          <div className="row-start" style={{ flexWrap: "wrap" }}>
+            <Link className="btn btn-primary" href={`/${locale}/dashboard`}>{d.retry}</Link>
+            <Link className="btn btn-secondary" href={`/${locale}/demo`}>{t.nav.demo}</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const { experiences, profile } = workspace;
   const active = experiences.filter((experience) => experience.status === "active");
   const drafts = experiences.filter((experience) => experience.status === "draft");
@@ -53,7 +74,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
 
   return (
     <div className="stack-lg">
-      <Reveal className="welcome">
+      <Reveal className="welcome" immediate>
         <Aurora />
         <div>
           <span className="pill-badge"><Sparkles size={14} /> {d.overview}</span>
@@ -66,11 +87,11 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
         </div>
       </Reveal>
 
-      <Stagger className="stat-grid">
-        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(95,115,84,.22)" }}><div className="stat-top">{d.statsActive}<span className="icon-chip sage" style={{ width: 34, height: 34 }}><Zap size={16} /></span></div><NumberTicker className="stat-value" value={active.length} /></StaggerItem>
-        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(176,137,72,.22)" }}><div className="stat-top">{d.statsDrafts}<span className="icon-chip gold" style={{ width: 34, height: 34 }}><FilePen size={16} /></span></div><NumberTicker className="stat-value" value={drafts.length} /></StaggerItem>
-        <StaggerItem className="card stat"><div className="stat-top">{d.statsShared}<span className="icon-chip" style={{ width: 34, height: 34 }}><Users size={16} /></span></div><NumberTicker className="stat-value" value={shared.length} /></StaggerItem>
-        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(139,111,214,.22)" }}>
+      <Stagger className="stat-grid" immediate>
+        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(47,138,104,.22)" }}><div className="stat-top">{d.statsActive}<span className="icon-chip sage" style={{ width: 34, height: 34 }}><Zap size={16} /></span></div><NumberTicker className="stat-value" value={active.length} immediate /></StaggerItem>
+        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(232,160,90,.22)" }}><div className="stat-top">{d.statsDrafts}<span className="icon-chip gold" style={{ width: 34, height: 34 }}><FilePen size={16} /></span></div><NumberTicker className="stat-value" value={drafts.length} immediate /></StaggerItem>
+        <StaggerItem className="card stat"><div className="stat-top">{d.statsShared}<span className="icon-chip" style={{ width: 34, height: 34 }}><Users size={16} /></span></div><NumberTicker className="stat-value" value={shared.length} immediate /></StaggerItem>
+        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(15,61,48,.18)" }}>
           <div className="stat-top">{d.statsNext}<span className="icon-chip ink" style={{ width: 34, height: 34 }}><CalendarDays size={16} /></span></div>
           <div className="stat-value" style={{ fontSize: next ? 28 : undefined }}>{next ? next.title : "—"}</div>
           {next ? <div className="stat-sub">{formatDate(locale, next.eventDate)}</div> : null}

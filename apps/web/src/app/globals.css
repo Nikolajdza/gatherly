@@ -1032,6 +1032,8 @@ dialog.sheet[open] { animation: sheet 0.3s var(--ease); }
     linear-gradient(135deg, #0a1f17, #071510);
   padding: clamp(26px, 4vw, 44px); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end;
   box-shadow: 0 30px 80px rgba(12, 31, 24, 0.22);
+  /* Never leave Motion's entrance state visually stuck. */
+  opacity: 1 !important; filter: none !important; transform: none !important;
 }
 .welcome h1 { margin: 14px 0 0; color: #fff; font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(32px, 3.6vw, 50px); line-height: 1.02; letter-spacing: -0.03em; }
 .welcome p { margin: 10px 0 0; color: rgba(220, 239, 230, 0.72); max-width: 520px; line-height: 1.6; }

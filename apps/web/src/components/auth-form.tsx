@@ -82,12 +82,11 @@ export function AuthForm({
       setError(signInError.message);
       return;
     }
-    // Ensure cookies are written before navigation so the marketing header and
-    // dashboard middleware see the same authenticated session.
-    await supabase.auth.getUser();
+    // Hard navigation after login so the proxy/middleware and RSC always see
+    // the freshly written auth cookies (soft client navigations can race).
+    await supabase.auth.getSession();
     const next = safeNext(search.get("next"), `/${locale}/dashboard`);
-    router.replace(next);
-    router.refresh();
+    window.location.assign(next);
   }
 
   const title = mode === "login" ? t.loginTitle : mode === "register" ? t.registerTitle : t.forgotTitle;

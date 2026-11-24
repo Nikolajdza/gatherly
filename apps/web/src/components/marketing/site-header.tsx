@@ -90,7 +90,7 @@ export function SiteHeader({ locale, dictionary }: { locale: Locale; dictionary:
               <span className="nav-skeleton" aria-hidden />
             ) : user ? (
               <>
-                <Link className="btn btn-primary btn-sm hide-sm" href={`/${locale}/dashboard`}>
+                <Link className="btn btn-primary btn-sm" href={`/${locale}/dashboard`}>
                   <LayoutDashboard size={15} /> {t.dashboard}
                 </Link>
                 <div className="user-menu" ref={menuRef}>

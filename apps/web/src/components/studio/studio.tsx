@@ -89,12 +89,36 @@ export function Studio({
   }, [backend]);
 
   useEffect(() => {
-    refresh().catch((error: unknown) => {
-      setLoadError(error instanceof BackendError && error.code === "NOT_CONFIGURED" ? t.common.configured : t.common.error);
-    });
+    let cancelled = false;
+    let attempts = 0;
+
+    async function load() {
+      attempts += 1;
+      try {
+        const data = await backend.getExperience();
+        if (!cancelled) {
+          setExperience(data);
+          setLoadError(null);
+        }
+      } catch (error: unknown) {
+        if (cancelled) return;
+        // Free-tier APIs often need a cold-start retry before the first success.
+        if (attempts < 4) {
+          await new Promise((resolve) => setTimeout(resolve, 1200 * attempts));
+          if (!cancelled) await load();
+          return;
+        }
+        setLoadError(error instanceof BackendError && error.code === "NOT_CONFIGURED" ? t.common.configured : t.common.error);
+      }
+    }
+
+    load();
     const hash = window.location.hash.replace("#", "") as TabId;
     if (hash) setTab(hash);
-  }, [refresh, t.common.configured, t.common.error]);
+    return () => {
+      cancelled = true;
+    };
+  }, [backend, t.common.configured, t.common.error]);
 
   const goTo = useCallback((next: TabId) => {
     setTab(next);
@@ -125,9 +149,13 @@ export function Studio({
     return (
       <div className="card empty">
         <span className="icon-chip"><Lock size={24} /></span>
-        <h3 className="serif">{t.common.error}</h3>
+        <h3 className="serif">{t.dash.apiDownTitle}</h3>
         <p>{loadError}</p>
-        <Link className="btn btn-primary" href={`/${locale}/demo`}>{t.dash.openDemo}</Link>
+        <p className="muted small" style={{ margin: 0 }}>{t.dash.apiDownHint}</p>
+        <div className="row-start">
+          <button className="btn btn-primary" type="button" onClick={() => window.location.reload()}>{t.dash.retry}</button>
+          <Link className="btn btn-secondary" href={`/${locale}/dashboard`}>{t.dash.backToDashboard}</Link>
+        </div>
       </div>
     );
   }
@@ -135,6 +163,7 @@ export function Studio({
   if (!context || !experience) {
     return (
       <div className="stack">
+        <div className="notice sage" style={{ marginBottom: 8 }}>{t.dash.apiDownText}</div>
         <div className="skeleton" style={{ height: 80 }} />
         <div className="skeleton" style={{ height: 48 }} />
         <div className="stat-grid">{[0, 1, 2, 3].map((key) => <div className="skeleton" key={key} style={{ height: 120 }} />)}</div>
