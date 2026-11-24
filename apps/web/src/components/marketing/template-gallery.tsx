@@ -1,12 +1,14 @@
 "use client";
 
-import { experienceTypes, templates, themePresets, type ExperienceType } from "@gatherly/shared";
-import Image from "next/image";
+import { experienceTypes, templates, type ExperienceType } from "@gatherly/shared";
+import { Play } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
+import { TemplateCard } from "@/components/ui/template-card";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries";
-import { isDemoTemplate, templateImages } from "@/lib/template-media";
+import { isDemoTemplate } from "@/lib/template-media";
 
 export function TemplateGallery({ locale, dictionary: t }: { locale: Locale; dictionary: Dictionary }) {
   const [kind, setKind] = useState<ExperienceType | "all">("all");
@@ -19,36 +21,35 @@ export function TemplateGallery({ locale, dictionary: t }: { locale: Locale; dic
           <button type="button" key={type} aria-pressed={kind === type} onClick={() => setKind(type)}>{t.kinds[type]}</button>
         ))}
       </div>
-      <div className="template-grid">
-        {shown.map((template) => {
-          const preset = themePresets[template.preset];
-          return (
-            <article className="card template-card card-hover" key={template.id}>
-              <div className="photo photo-zoom">
-                <Image src={templateImages[template.id] ?? "/images/hero.jpg"} alt="" fill sizes="(min-width: 920px) 25vw, 50vw" />
-              </div>
-              <div className="tc-body">
-                <div className="row">
-                  <span className="badge">{t.kinds[template.type]}</span>
-                  <span className="swatch-row" aria-hidden>
-                    <i style={{ background: preset.primary }} />
-                    <i style={{ background: preset.accent }} />
-                    <i style={{ background: preset.background }} />
-                  </span>
-                </div>
-                <h3 className="serif h3">{t.templates[template.id]}</h3>
-                <p>{t.templateBlurbs[template.id]}</p>
-              </div>
-              <div className="tc-actions">
-                <Link className="btn btn-primary btn-sm" href={`/${locale}/dashboard/experiences/new?template=${template.id}`}>{t.showcase.use}</Link>
-                {isDemoTemplate(template.id) ? (
-                  <Link className="btn btn-secondary btn-sm" href={`/${locale}/demo/${template.id}`}>{t.pages.templates.demo}</Link>
-                ) : null}
-              </div>
-            </article>
-          );
-        })}
-      </div>
+      <motion.div layout className="tcard-grid" style={{ marginTop: 28 }}>
+        <AnimatePresence mode="popLayout">
+          {shown.map((template) => (
+            <motion.div
+              key={template.id}
+              layout
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              style={{ display: "flex" }}
+            >
+              <TemplateCard
+                id={template.id}
+                title={t.templates[template.id]}
+                blurb={t.templateBlurbs[template.id]}
+                kind={t.kinds[template.type]}
+                cta={t.showcase.use}
+                href={`/${locale}/dashboard/experiences/new?template=${template.id}`}
+                actions={
+                  isDemoTemplate(template.id) ? (
+                    <Link className="btn btn-secondary btn-sm" href={`/${locale}/demo/${template.id}`}><Play size={14} /> {t.pages.templates.demo}</Link>
+                  ) : null
+                }
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
     </>
   );
 }

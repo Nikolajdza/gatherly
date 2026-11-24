@@ -25,6 +25,16 @@ export async function proxy(request: NextRequest) {
     session.response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
     return redirect;
   }
+  const isAuthPage = pathname === `/${segment}/login` || pathname === `/${segment}/register`;
+  if (isAuthPage && session.userId) {
+    const url = request.nextUrl.clone();
+    const next = request.nextUrl.searchParams.get("next");
+    url.pathname = next && next.startsWith(`/${segment}/`) ? next : `/${segment}/dashboard`;
+    url.search = "";
+    const redirect = NextResponse.redirect(url);
+    session.response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  }
   return session.response;
 }
 

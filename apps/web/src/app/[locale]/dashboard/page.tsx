@@ -1,13 +1,14 @@
 import { templates } from "@gatherly/shared";
-import { ArrowRight, CalendarDays, FilePen, Plug, Sparkles, Users, Zap } from "lucide-react";
+import { ArrowRight, CalendarDays, FilePen, Plug, Plus, Sparkles, Users, Zap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExperienceGrid } from "@/components/app/experience-grid";
+import { Aurora, NumberTicker, Reveal, Stagger, StaggerItem } from "@/components/ui/fx";
+import { TemplateCard } from "@/components/ui/template-card";
 import { formatDate, isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { loadWorkspace } from "@/lib/server-api";
-import { templateImages } from "@/lib/template-media";
 
 const quickStart = ["baby-shower", "wedding", "birthday", "secret-santa", "shared-todo", "christmas"] as const;
 
@@ -48,35 +49,35 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
     .filter((experience) => experience.eventDate && experience.eventDate >= today && experience.status !== "archived")
     .sort((a, b) => (a.eventDate ?? "").localeCompare(b.eventDate ?? ""))[0];
 
+  const firstName = profile?.displayName ? profile.displayName.split(" ")[0] : "";
+
   return (
     <div className="stack-lg">
-      <div className="page-title">
+      <Reveal className="welcome">
+        <Aurora />
         <div>
-          <p className="eyebrow">{d.overview}</p>
-          <h1 className="serif">{d.greeting}{profile?.displayName ? `, ${profile.displayName.split(" ")[0]}` : ""}</h1>
-          <p>{d.greetingLede}</p>
+          <span className="pill-badge"><Sparkles size={14} /> {d.overview}</span>
+          <h1 className="serif">{d.greeting}{firstName ? <>, <span className="text-gradient">{firstName}</span></> : ""}</h1>
+          <p>{experiences.length === 0 ? d.emptyText : d.greetingLede}</p>
         </div>
-      </div>
+        <div className="row-start">
+          <Link className="btn btn-glass" href={`/${locale}/demo/baby-shower/admin`}>{d.help}</Link>
+          <Link className="btn btn-primary btn-glow" href={`/${locale}/dashboard/experiences/new`}><Plus size={16} /> {d.create}</Link>
+        </div>
+      </Reveal>
 
-      <div className="stat-grid">
-        <div className="card stat"><div className="stat-top">{d.statsActive}<span className="icon-chip sage" style={{ width: 34, height: 34 }}><Zap size={16} /></span></div><div className="stat-value">{active.length}</div></div>
-        <div className="card stat"><div className="stat-top">{d.statsDrafts}<span className="icon-chip gold" style={{ width: 34, height: 34 }}><FilePen size={16} /></span></div><div className="stat-value">{drafts.length}</div></div>
-        <div className="card stat"><div className="stat-top">{d.statsShared}<span className="icon-chip" style={{ width: 34, height: 34 }}><Users size={16} /></span></div><div className="stat-value">{shared.length}</div></div>
-        <div className="card stat">
+      <Stagger className="stat-grid">
+        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(95,115,84,.22)" }}><div className="stat-top">{d.statsActive}<span className="icon-chip sage" style={{ width: 34, height: 34 }}><Zap size={16} /></span></div><NumberTicker className="stat-value" value={active.length} /></StaggerItem>
+        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(176,137,72,.22)" }}><div className="stat-top">{d.statsDrafts}<span className="icon-chip gold" style={{ width: 34, height: 34 }}><FilePen size={16} /></span></div><NumberTicker className="stat-value" value={drafts.length} /></StaggerItem>
+        <StaggerItem className="card stat"><div className="stat-top">{d.statsShared}<span className="icon-chip" style={{ width: 34, height: 34 }}><Users size={16} /></span></div><NumberTicker className="stat-value" value={shared.length} /></StaggerItem>
+        <StaggerItem className="card stat" style={{ ["--stat-glow" as string]: "rgba(139,111,214,.22)" }}>
           <div className="stat-top">{d.statsNext}<span className="icon-chip ink" style={{ width: 34, height: 34 }}><CalendarDays size={16} /></span></div>
-          <div className="stat-value" style={{ fontSize: next ? 30 : undefined }}>{next ? next.title : "—"}</div>
+          <div className="stat-value" style={{ fontSize: next ? 28 : undefined }}>{next ? next.title : "—"}</div>
           {next ? <div className="stat-sub">{formatDate(locale, next.eventDate)}</div> : null}
-        </div>
-      </div>
+        </StaggerItem>
+      </Stagger>
 
-      {experiences.length === 0 ? (
-        <div className="card empty">
-          <span className="icon-chip"><Sparkles size={26} /></span>
-          <h3 className="serif">{d.empty}</h3>
-          <p>{d.emptyText}</p>
-          <Link className="btn btn-primary" href={`/${locale}/dashboard/experiences/new`}>{d.create} <ArrowRight size={16} /></Link>
-        </div>
-      ) : (
+      {experiences.length === 0 ? null : (
         <section className="stack">
           <h2 className="serif h3" style={{ margin: 0 }}>{d.experiences}</h2>
           <ExperienceGrid locale={locale} t={t} experiences={experiences} />
@@ -84,15 +85,22 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
       )}
 
       <section className="stack">
-        <h2 className="serif h3" style={{ margin: 0 }}>{d.quickStart}</h2>
-        <div className="template-pick">
+        <div className="row">
+          <h2 className="serif h3" style={{ margin: 0 }}>{d.quickStart}</h2>
+          <Link className="link small" href={`/${locale}/dashboard/experiences/new`}>{t.nav.templates} <ArrowRight size={14} /></Link>
+        </div>
+        <div className="tcard-grid compact">
           {quickStart.map((id) => {
             const template = templates.find((entry) => entry.id === id);
             return (
-              <Link className="pick" key={id} href={`/${locale}/dashboard/experiences/new?template=${id}`}>
-                <div className="photo"><Image src={templateImages[id] ?? "/images/hero.jpg"} alt="" fill sizes="220px" /></div>
-                <div className="pick-body"><strong>{t.templates[id]}</strong><small>{template ? t.kinds[template.type] : ""}</small></div>
-              </Link>
+              <TemplateCard
+                key={id}
+                id={id}
+                compact
+                title={t.templates[id]}
+                kind={template ? t.kinds[template.type] : undefined}
+                href={`/${locale}/dashboard/experiences/new?template=${id}`}
+              />
             );
           })}
         </div>

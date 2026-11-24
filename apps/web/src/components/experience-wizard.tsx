@@ -15,11 +15,11 @@ import {
   visibilities,
 } from "@gatherly/shared";
 import { ArrowLeft, ArrowRight, Check, Rocket, Save } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PublicExperience } from "@/components/experience/public-experience";
+import { TemplateCard } from "@/components/ui/template-card";
 import { configFromValues, eventDateFrom, TemplateFields, valuesFromConfig, type FieldValues } from "@/components/studio/template-fields";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries";
@@ -160,19 +160,27 @@ export function ExperienceWizard({ locale, dictionary: t }: { locale: Locale; di
           {step === 0 ? (
             <>
               <div><h2 className="serif h3" style={{ margin: 0 }}>{w.chooseTitle}</h2><p className="muted" style={{ margin: "6px 0 0" }}>{w.chooseLede}</p></div>
-              {experienceTypes.map((type) => (
-                <section key={type}>
-                  <p className="group-label">{t.kinds[type]}</p>
-                  <div className="template-pick">
-                    {templates.filter((entry) => entry.type === type).map((entry) => (
-                      <button key={entry.id} type="button" className="pick" aria-pressed={templateId === entry.id} onClick={() => { chooseTemplate(entry.id); setStep(1); }}>
-                        <div className="photo"><Image src={templateImages[entry.id] ?? "/images/hero.jpg"} alt="" fill sizes="220px" /></div>
-                        <div className="pick-body"><strong>{t.templates[entry.id]}</strong><small>{t.templateBlurbs[entry.id]}</small></div>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ))}
+              {experienceTypes.map((type) => {
+                const group = templates.filter((entry) => entry.type === type);
+                return (
+                  <section key={type}>
+                    <div className="group-head"><p className="group-label">{t.kinds[type]}</p><span className="group-count">{group.length}</span></div>
+                    <div className="tcard-grid">
+                      {group.map((entry) => (
+                        <TemplateCard
+                          key={entry.id}
+                          id={entry.id}
+                          title={t.templates[entry.id]}
+                          blurb={t.templateBlurbs[entry.id]}
+                          cta={w.next}
+                          selected={templateId === entry.id}
+                          onClick={() => { chooseTemplate(entry.id); setStep(1); }}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </>
           ) : null}
 
