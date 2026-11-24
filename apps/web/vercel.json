@@ -1,0 +1,5 @@
+{
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && pnpm --filter @gatherly/shared build && pnpm --filter @gatherly/api-client build && pnpm --filter @gatherly/web build"
+}
