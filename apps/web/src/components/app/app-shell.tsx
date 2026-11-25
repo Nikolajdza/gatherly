@@ -4,6 +4,7 @@ import { CircleHelp, Inbox, LayoutGrid, LogOut, Menu, Plus, Settings, Sparkles, 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { NotificationBell } from "@/components/app/notification-bell";
 import { LanguageMenu } from "@/components/language-menu";
 import { Brand } from "@/components/ui/brand";
 import { ToastProvider } from "@/components/ui/toast";
@@ -113,6 +114,7 @@ export function AppShell({
               <Link href={home} className="small muted hide-sm" style={{ fontWeight: 700 }}>{mode === "demo" ? t.nav.demo : d.overview}</Link>
             </div>
             <div className="row-start">
+              {mode === "live" && user ? <NotificationBell locale={locale} t={t} /> : null}
               <LanguageMenu locale={locale} label={t.nav.language} />
               {mode === "live" ? (
                 <Link className="btn btn-primary btn-sm" href={`/${locale}/dashboard/experiences/new`}><Plus size={16} /> <span className="hide-sm">{d.create}</span></Link>

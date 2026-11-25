@@ -4,7 +4,7 @@ import { resolveTheme, themePresets, type ThemeConfig } from "@gatherly/shared";
 import { ImagePlus, RotateCcw, Save } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { PublicExperience } from "@/components/experience/public-experience";
-import { coverLibrary, templateImages } from "@/lib/template-media";
+import { coversForTemplate, templateImages } from "@/lib/template-media";
 import { themeFor } from "@/lib/theme";
 import type { StudioContext } from "./studio";
 
@@ -114,7 +114,7 @@ export function DesignTab({ ctx }: { ctx: StudioContext }) {
           <h3 className="h4" style={{ margin: 0 }}>{d.cover}</h3>
           <span className="small muted">{d.coverLibrary}</span>
           <div className="cover-library">
-            {coverLibrary.map((src) => (
+            {coversForTemplate(experience.template).map((src) => (
               <button key={src} type="button" aria-pressed={selectedCover === src} onClick={() => setCover(src)}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={src} alt="" />

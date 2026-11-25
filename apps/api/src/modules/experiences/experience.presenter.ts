@@ -1,4 +1,4 @@
-import { activeReservation, presentReservation, type ExperienceDetail, type ExperienceSummary, type PublicItem } from "@gatherly/shared";
+import { activeReservation, presentReservation, type ExperienceDetail, type ExperienceSummary, type MemberRole, type PublicItem } from "@gatherly/shared";
 import { asRecord, dateOnly } from "../../common/http";
 
 type StoredReservation = {
@@ -9,6 +9,7 @@ type StoredReservation = {
   note: string;
   createdAt: Date;
   cancelledAt: Date | null;
+  user?: { displayName: string } | null;
 };
 
 type StoredContribution = { amountCents: number };
@@ -48,11 +49,17 @@ export type StoredExperience = {
   coverImageUrl: string | null;
   config: unknown;
   themeConfig: unknown;
+  thankYouMode?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  owner?: { plan?: "free" | "pro" } | null;
 };
 
-export function presentItem(item: StoredItem, viewerId?: string | null): PublicItem {
+export function presentItem(
+  item: StoredItem,
+  viewerId?: string | null,
+  options?: { role?: MemberRole | null; thankYouMode?: boolean },
+): PublicItem {
   const active = activeReservation(
     item.reservations.map((reservation) => ({
       ...reservation,
@@ -60,7 +67,18 @@ export function presentItem(item: StoredItem, viewerId?: string | null): PublicI
       cancelledAt: reservation.cancelledAt?.toISOString() ?? null,
     })),
   );
-  const shown = active ? presentReservation(active, { userId: viewerId }) : null;
+  const thankYouReveal = Boolean(options?.thankYouMode);
+  const shown = active
+    ? presentReservation(active, {
+        userId: viewerId,
+        role: options?.role ?? null,
+        thankYouReveal,
+      })
+    : null;
+  const reserverName =
+    shown?.reserver && thankYouReveal && (options?.role === "owner" || options?.role === "editor")
+      ? item.reservations.find((row) => row.id === active?.id)?.user?.displayName ?? null
+      : null;
   return {
     id: item.id,
     title: item.title,
@@ -83,13 +101,15 @@ export function presentItem(item: StoredItem, viewerId?: string | null): PublicI
           id: shown.id,
           status: shown.status,
           quantity: shown.quantity,
-          mine: Boolean(shown.reserver),
+          mine: Boolean(viewerId && active && active.userId === viewerId),
+          reserverName,
         }
       : null,
   };
 }
 
 export function presentSummary(experience: StoredExperience, role: ExperienceSummary["role"]): ExperienceSummary {
+  const plan = experience.owner?.plan ?? "free";
   return {
     id: experience.id,
     ownerId: experience.ownerId,
@@ -105,6 +125,8 @@ export function presentSummary(experience: StoredExperience, role: ExperienceSum
     timezone: experience.timezone,
     coverImageUrl: experience.coverImageUrl,
     role,
+    thankYouMode: Boolean(experience.thankYouMode),
+    showWatermark: plan !== "pro",
     createdAt: experience.createdAt.toISOString(),
     updatedAt: experience.updatedAt.toISOString(),
   };
@@ -120,7 +142,9 @@ export function presentDetail(
     ...presentSummary(experience, role),
     config: asRecord(experience.config),
     themeConfig: asRecord(experience.themeConfig),
-    items: experience.items.map((item) => presentItem(item, viewerId)),
+    items: experience.items.map((item) =>
+      presentItem(item, viewerId, { role, thankYouMode: Boolean(experience.thankYouMode) }),
+    ),
     memberCount,
   };
 }

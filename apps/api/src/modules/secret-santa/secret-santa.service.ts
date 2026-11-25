@@ -11,6 +11,7 @@ import {
 import type { z } from "zod";
 import { dateOnly, fromDateOnly, toJson } from "../../common/http";
 import { PrismaService } from "../../database/prisma.service";
+import { MailService } from "../mail/mail.service";
 import { PermissionsService } from "../permissions/permissions.service";
 
 type Settings = z.infer<typeof secretSantaSettingsSchema>;
@@ -23,6 +24,7 @@ export class SecretSantaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissions: PermissionsService,
+    private readonly mail: MailService,
   ) {}
 
   async get(experienceId: string, userId: string): Promise<SecretSantaView> {
@@ -173,6 +175,17 @@ export class SecretSantaService {
         })),
       });
     });
+
+    const url = `${this.mail.webOrigin()}/en/e/${draw.experience.slug}`;
+    for (const participant of participants) {
+      const email = participant.user.email;
+      if (!email || email.endsWith("@users.gatherly.invalid")) continue;
+      void this.mail.sendDrawReady({
+        to: email,
+        experienceTitle: draw.experience.title,
+        experienceUrl: url,
+      });
+    }
 
     return { status: "drawn" as const, participantCount: participants.length };
   }

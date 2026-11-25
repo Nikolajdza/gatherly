@@ -1,6 +1,12 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { acceptInviteSchema, claimInviteSchema, createInviteSchema } from "@gatherly/shared";
+import {
+  acceptInviteSchema,
+  claimInviteSchema,
+  createInviteSchema,
+  createInvitesBulkSchema,
+  sendThankYouSchema,
+} from "@gatherly/shared";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { parseBody } from "../../common/http";
@@ -22,6 +28,18 @@ export class InvitationsController {
   @Post("experiences/:experienceId/invitations")
   create(@CurrentUser() user: AuthUser, @Param("experienceId") experienceId: string, @Body() body: unknown) {
     return this.invitations.create(experienceId, user.id, parseBody(createInviteSchema, body));
+  }
+
+  @ApiBearerAuth()
+  @Post("experiences/:experienceId/invitations/bulk")
+  createBulk(@CurrentUser() user: AuthUser, @Param("experienceId") experienceId: string, @Body() body: unknown) {
+    return this.invitations.createBulk(experienceId, user.id, parseBody(createInvitesBulkSchema, body));
+  }
+
+  @ApiBearerAuth()
+  @Post("experiences/:experienceId/thank-you")
+  sendThankYou(@CurrentUser() user: AuthUser, @Param("experienceId") experienceId: string, @Body() body: unknown) {
+    return this.invitations.sendThankYou(experienceId, user.id, parseBody(sendThankYouSchema, body));
   }
 
   @ApiBearerAuth()

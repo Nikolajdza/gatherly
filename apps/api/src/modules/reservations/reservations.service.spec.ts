@@ -51,7 +51,15 @@ describe("reservation privacy and conflicts", () => {
             id: "item",
             experienceId: "exp",
             quantity: 1,
-            experience: { ownerId: "owner", visibility: "public", status: "active", id: "exp" },
+            experience: {
+              ownerId: "owner",
+              visibility: "public",
+              status: "active",
+              id: "exp",
+              slug: "exp",
+              title: "Party",
+              owner: { email: "owner@example.com" },
+            },
           }),
         },
         itemReservation: {
@@ -64,6 +72,7 @@ describe("reservation privacy and conflicts", () => {
       } as never,
       { getMembership: async () => null } as never,
       { create: async () => undefined } as never,
+      { webOrigin: () => "https://example.com", sendReservationNotice: async () => true } as never,
     );
     await assert.rejects(
       () => service.reserve("item", "guest", { quantity: 1, note: "" }),

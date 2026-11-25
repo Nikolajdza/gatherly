@@ -217,6 +217,24 @@ export function demoBackend(template: DemoTemplate): StudioBackend {
         draft.invites.unshift(invite);
         return { ...invite, token, urlPath: `/invite/${token}`, emailSent: false };
       }),
+    createInvitesBulk: (body) =>
+      mutate((draft) => {
+        const items = body.emails.map((email) => {
+          const token = Array.from(crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+          const invite = {
+            id: demoId("invite"),
+            role: body.role,
+            email,
+            status: "pending" as const,
+            expiresAt: new Date(Date.now() + (body.expiresInDays ?? 14) * 86_400_000).toISOString(),
+            createdAt: new Date().toISOString(),
+          };
+          draft.invites.unshift(invite);
+          return { ...invite, token, urlPath: `/invite/${token}`, emailSent: false };
+        });
+        return { items, created: items.length, emailed: 0 };
+      }),
+    sendThankYou: async () => ({ sent: 0, recipients: 0 }),
     revokeInvite: (id) =>
       mutate((draft) => {
         const invite = draft.invites.find((entry) => entry.id === id);

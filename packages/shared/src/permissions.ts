@@ -53,17 +53,26 @@ export type PublicReservation = {
   reserver: { id: string } | null;
 };
 
-/** Owners and other guests see that a gift is taken. Only the person who reserved it sees their identity. */
+export type ReservationPresentOptions = ReservationViewer & {
+  /** Host opted into thank-you mode: owners/editors may see who reserved. */
+  thankYouReveal?: boolean;
+};
+
+/** Guests see that a gift is taken. Reserver identity is private unless it is theirs or thank-you mode reveals it to hosts. */
 export function presentReservation(
   reservation: ReservationRecord,
-  viewer: ReservationViewer,
+  viewer: ReservationPresentOptions,
 ): PublicReservation {
-  const identityVisible = Boolean(viewer.userId && viewer.userId === reservation.userId);
+  const isMine = Boolean(viewer.userId && viewer.userId === reservation.userId);
+  const hostReveal =
+    Boolean(viewer.thankYouReveal) &&
+    (viewer.role === "owner" || viewer.role === "editor");
+  const identityVisible = isMine || hostReveal;
   return {
-    id: identityVisible ? reservation.id : null,
+    id: isMine ? reservation.id : hostReveal ? reservation.id : null,
     status: reservation.status,
     quantity: reservation.quantity,
-    note: identityVisible ? reservation.note : null,
+    note: isMine ? reservation.note : null,
     createdAt: reservation.createdAt,
     cancelledAt: reservation.cancelledAt,
     reserver: identityVisible ? { id: reservation.userId } : null,

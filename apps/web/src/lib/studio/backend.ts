@@ -74,6 +74,12 @@ export interface StudioBackend {
   removeMember(userId: string): Promise<void>;
   listInvites(): Promise<InviteRecord[]>;
   createInvite(body: InviteInput): Promise<CreatedInvite>;
+  createInvitesBulk(body: { role: InviteInput["role"]; emails: string[]; expiresInDays?: number }): Promise<{
+    items: CreatedInvite[];
+    created: number;
+    emailed: number;
+  }>;
+  sendThankYou(body: { note: string; onlyReserved?: boolean }): Promise<{ sent: number; recipients: number }>;
   revokeInvite(id: string): Promise<void>;
 
   getSanta(): Promise<SecretSantaView>;

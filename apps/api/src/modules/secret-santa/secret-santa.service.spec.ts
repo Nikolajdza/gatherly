@@ -15,10 +15,10 @@ describe("secret santa privacy", () => {
             drawDate: null,
             purchaseDeadline: null,
             organizerParticipates: true,
-            experience: { ownerId: "owner" },
+            experience: { ownerId: "owner", title: "Office Santa", slug: "office-santa" },
             participants: [
-              { id: "p1", userId: "owner", joinedAt: new Date(), user: { displayName: "Nikola" }, wishlist: { items: [] } },
-              { id: "p2", userId: "ana", joinedAt: new Date(), user: { displayName: "Ana" }, wishlist: { items: [{ title: "Book", note: "", url: null }] } },
+              { id: "p1", userId: "owner", joinedAt: new Date(), user: { displayName: "Nikola", email: "n@example.com" }, wishlist: { items: [] } },
+              { id: "p2", userId: "ana", joinedAt: new Date(), user: { displayName: "Ana", email: "a@example.com" }, wishlist: { items: [{ title: "Book", note: "", url: null }] } },
             ],
             exclusions: [],
           }),
@@ -34,6 +34,7 @@ describe("secret santa privacy", () => {
         },
       } as never,
       { requireMember: async () => ({ role: "owner" }) } as never,
+      { webOrigin: () => "https://example.com", sendDrawReady: async () => true } as never,
     );
 
     const view = await service.get("exp", "owner");

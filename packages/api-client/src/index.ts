@@ -100,6 +100,19 @@ export class GatherlyClient {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    createBulk: (
+      experienceId: string,
+      body: { role: CreateInviteInput["role"]; emails: string[]; expiresInDays?: number },
+    ) =>
+      this.request<{ items: CreatedInvite[]; created: number; emailed: number }>(
+        `/experiences/${experienceId}/invitations/bulk`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    sendThankYou: (experienceId: string, body: { note: string; onlyReserved?: boolean }) =>
+      this.request<{ sent: number; recipients: number }>(`/experiences/${experienceId}/thank-you`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     revoke: (id: string) => this.request<InviteRecord>(`/invitations/${id}/revoke`, { method: "POST" }),
     preview: (token: string) =>
       this.request<InvitePreview>(`/invitations/preview?token=${encodeURIComponent(token)}`),
@@ -223,24 +236,44 @@ export class GatherlyClient {
     read: (id: string) => this.request<NotificationRecord>(`/notifications/${id}/read`, { method: "POST" }),
   };
 
+  billing = {
+    upgrade: () => this.request<Profile>("/billing/upgrade", { method: "POST" }),
+  };
+
   private post<T>(path: string, body: unknown): Promise<T> {
     return this.request<T>(path, { method: "POST", body: JSON.stringify(body) });
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T>(path: string, init?: RequestInit, attempt = 0): Promise<T> {
     const token = this.options.getToken ? await this.options.getToken() : null;
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/json");
     if (init?.body) headers.set("Content-Type", "application/json");
     if (token) headers.set("Authorization", `Bearer ${token}`);
     const fetcher = this.options.fetch ?? fetch;
-    const response = await fetcher(`${this.options.baseUrl.replace(/\/$/, "")}/api/v1${path}`, {
-      ...init,
-      headers,
-    });
-    const text = await response.text();
-    const data: unknown = text ? JSON.parse(text) : null;
-    if (!response.ok) throw new ApiError(response.status, data);
-    return data as T;
+    const url = `${this.options.baseUrl.replace(/\/$/, "")}/api/v1${path}`;
+    try {
+      const response = await fetcher(url, { ...init, headers });
+      const text = await response.text();
+      const data: unknown = text ? JSON.parse(text) : null;
+      // Free-tier hosts often 502/503 during cold start — retry a few times.
+      if (!response.ok && attempt < 3 && (response.status === 502 || response.status === 503 || response.status === 504)) {
+        await sleep(900 * (attempt + 1));
+        return this.request(path, init, attempt + 1);
+      }
+      if (!response.ok) throw new ApiError(response.status, data);
+      return data as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (attempt < 3) {
+        await sleep(900 * (attempt + 1));
+        return this.request(path, init, attempt + 1);
+      }
+      throw error;
+    }
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

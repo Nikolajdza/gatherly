@@ -113,7 +113,39 @@ export function ShareTab({ ctx }: { ctx: StudioContext }) {
           {qr ? <img src={qr} alt={s.qr} /> : <div className="skeleton" style={{ width: 220, height: 220 }} />}
         </div>
         <p className="small muted" style={{ margin: 0 }}>{s.qrHint}</p>
-        {qr ? <a className="btn btn-secondary" href={qr} download={`${experience.slug}-qr.png`}><Download size={16} /> {s.download}</a> : null}
+        {qr ? (
+          <div className="row-start" style={{ justifyContent: "center", flexWrap: "wrap" }}>
+            <a className="btn btn-secondary" href={qr} download={`${experience.slug}-qr.png`}><Download size={16} /> {s.download}</a>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => {
+                const win = window.open("", "_blank", "noopener,noreferrer,width=480,height=720");
+                if (!win) return;
+                win.document.write(`<!doctype html><html><head><title>${experience.title}</title>
+<style>
+  @page { size: A6; margin: 12mm; }
+  body { margin: 0; font-family: Georgia, serif; color: #1a2e24; display: grid; place-items: center; min-height: 100vh; text-align: center; }
+  img { width: 220px; height: 220px; }
+  h1 { font-size: 22px; margin: 18px 0 8px; }
+  p { margin: 0; opacity: .7; font-size: 13px; }
+  .story { width: 1080px; max-width: 92vw; aspect-ratio: 9/16; display: grid; place-content: center; gap: 18px; border: 1px dashed #c5d5cb; border-radius: 24px; padding: 32px; box-sizing: border-box; }
+</style></head><body>
+  <div class="story">
+    <div style="letter-spacing:.16em;text-transform:uppercase;font-size:11px;opacity:.55;">Gatherly</div>
+    <h1>${experience.title.replaceAll("<", "&lt;")}</h1>
+    <img src="${qr}" alt="QR" />
+    <p>${s.printTitle}</p>
+  </div>
+  <script>setTimeout(() => window.print(), 250)</script>
+</body></html>`);
+                win.document.close();
+              }}
+            >
+              {s.print}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

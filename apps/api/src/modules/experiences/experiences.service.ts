@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  FREE_ACTIVE_EXPERIENCE_LIMIT,
   getTemplate,
   parseTemplateConfig,
   resolveTheme,
@@ -15,9 +16,13 @@ import { PermissionsService } from "../permissions/permissions.service";
 import { canReadExperience, presentDetail, presentSummary, type StoredExperience, type StoredItem } from "./experience.presenter";
 
 const detailInclude = {
+  owner: { select: { plan: true } },
   items: {
     orderBy: { sortOrder: "asc" as const },
-    include: { reservations: true, contributions: true },
+    include: {
+      reservations: { include: { user: { select: { displayName: true } } } },
+      contributions: true,
+    },
   },
   _count: { select: { members: true } },
 };
@@ -32,7 +37,7 @@ export class ExperiencesService {
   async list(userId: string) {
     const memberships = await this.prisma.experienceMember.findMany({
       where: { userId },
-      include: { experience: true },
+      include: { experience: { include: { owner: { select: { plan: true } } } } },
       orderBy: { createdAt: "desc" },
       take: 100,
     });
@@ -45,6 +50,19 @@ export class ExperiencesService {
     const template = getTemplate(input.template);
     if (!template || template.type !== input.type) {
       throw new BadRequestException({ code: "UNKNOWN_TEMPLATE", message: "That template does not match the experience type." });
+    }
+
+    const profile = await this.prisma.profile.findUnique({ where: { id: userId }, select: { plan: true } });
+    if ((profile?.plan ?? "free") === "free") {
+      const activeOwned = await this.prisma.experience.count({
+        where: { ownerId: userId, status: { in: ["draft", "active"] } },
+      });
+      if (activeOwned >= FREE_ACTIVE_EXPERIENCE_LIMIT) {
+        throw new ForbiddenException({
+          code: "PLAN_LIMIT",
+          message: `Free plan allows up to ${FREE_ACTIVE_EXPERIENCE_LIMIT} experiences. Archive one or upgrade to Pro.`,
+        });
+      }
     }
 
     const config = this.parseConfig(template.id, input.config);
@@ -137,6 +155,10 @@ export class ExperiencesService {
       }
     }
 
+    if (input.thankYouMode !== undefined && member.role !== "owner") {
+      throw new ForbiddenException({ code: "FORBIDDEN", message: "Only the owner can change thank-you mode." });
+    }
+
     await this.prisma.experience.update({
       where: { id },
       data: {
@@ -149,6 +171,7 @@ export class ExperiencesService {
         coverImageUrl: input.coverImageUrl === undefined ? undefined : input.coverImageUrl,
         config,
         themeConfig,
+        thankYouMode: input.thankYouMode,
       },
     });
     return this.getForMember(id, userId).then((detail) => ({ ...detail, role: member.role }));

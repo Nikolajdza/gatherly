@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import { isUniqueViolation } from "../../common/http";
 import { PrismaService } from "../../database/prisma.service";
 import { canReadExperience } from "../experiences/experience.presenter";
+import { MailService } from "../mail/mail.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PermissionsService } from "../permissions/permissions.service";
 
@@ -11,12 +12,13 @@ export class ReservationsService {
     private readonly prisma: PrismaService,
     private readonly permissions: PermissionsService,
     private readonly notifications: NotificationsService,
+    private readonly mail: MailService,
   ) {}
 
   async reserve(itemId: string, userId: string, input: { quantity: number; note: string }) {
     const item = await this.prisma.experienceItem.findUnique({
       where: { id: itemId },
-      include: { experience: true },
+      include: { experience: { include: { owner: true } } },
     });
     if (!item) throw new NotFoundException({ code: "NOT_FOUND", message: "Item not found." });
     const member = await this.permissions.getMembership(item.experienceId, userId);
@@ -39,7 +41,18 @@ export class ReservationsService {
         await this.notifications.create(item.experience.ownerId, item.experienceId, "reservation_created", {
           experienceId: item.experienceId,
           itemId: item.id,
+          itemTitle: item.title,
         });
+        const ownerEmail = item.experience.owner.email;
+        if (ownerEmail && !ownerEmail.endsWith("@users.gatherly.invalid")) {
+          const url = `${this.mail.webOrigin()}/en/e/${item.experience.slug}`;
+          void this.mail.sendReservationNotice({
+            to: ownerEmail,
+            experienceTitle: item.experience.title,
+            itemTitle: item.title,
+            experienceUrl: url,
+          });
+        }
       }
       return { id: reservation.id };
     } catch (error) {

@@ -1,12 +1,23 @@
 "use client";
 
 import type { InviteRecord, MemberRecord } from "@gatherly/shared";
-import { Copy, Mail, Send, UserMinus, X } from "lucide-react";
+import { Copy, Mail, Send, UserMinus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { formatDate } from "@/i18n/config";
 import type { StudioContext } from "./studio";
 
 type InviteRole = "editor" | "participant" | "viewer";
+
+function parseEmails(raw: string) {
+  return [
+    ...new Set(
+      raw
+        .split(/[\s,;]+/)
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value.includes("@")),
+    ),
+  ];
+}
 
 export function PeopleTab({ ctx }: { ctx: StudioContext }) {
   const { t, backend, locale, experience } = ctx;
@@ -15,9 +26,12 @@ export function PeopleTab({ ctx }: { ctx: StudioContext }) {
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [role, setRole] = useState<InviteRole>("participant");
   const [email, setEmail] = useState("");
+  const [bulkEmails, setBulkEmails] = useState("");
   const [days, setDays] = useState("14");
   const [link, setLink] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
+  const [emailAttempted, setEmailAttempted] = useState(false);
+  const [bulkSummary, setBulkSummary] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -34,15 +48,33 @@ export function PeopleTab({ ctx }: { ctx: StudioContext }) {
   async function invite(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
+    setBulkSummary(null);
     try {
+      const bulk = parseEmails(bulkEmails);
+      const expiresInDays = Math.max(1, Math.min(90, Number(days) || 14));
+      if (bulk.length > 1 || (bulk.length === 1 && !email.trim())) {
+        const result = await backend.createInvitesBulk({ role, emails: bulk, expiresInDays });
+        setBulkSummary(
+          pp.bulkResult
+            .replace("{created}", String(result.created))
+            .replace("{emailed}", String(result.emailed)),
+        );
+        setLink(null);
+        setBulkEmails("");
+        await load();
+        return;
+      }
+      const targetEmail = email.trim() || bulk[0] || null;
       const created = await backend.createInvite({
         role,
-        email: email.trim() || null,
-        expiresInDays: Math.max(1, Math.min(90, Number(days) || 14)),
+        email: targetEmail,
+        expiresInDays,
       });
       setLink(`${window.location.origin}/${locale}${created.urlPath}`);
       setEmailSent(Boolean(created.emailSent));
+      setEmailAttempted(Boolean(targetEmail));
       setEmail("");
+      setBulkEmails("");
       await load();
     } catch (error) {
       ctx.fail(error);
@@ -176,11 +208,24 @@ export function PeopleTab({ ctx }: { ctx: StudioContext }) {
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" />
           <span className="field-hint">{pp.inviteEmailHint}</span>
         </label>
+        <label className="field">
+          {pp.bulkLabel}
+          <textarea
+            value={bulkEmails}
+            onChange={(event) => setBulkEmails(event.target.value)}
+            placeholder={pp.bulkPlaceholder}
+            style={{ minHeight: 96 }}
+          />
+          <span className="field-hint">{pp.bulkHint}</span>
+        </label>
         <label className="field">{pp.inviteDays}<input type="number" min={1} max={90} value={days} onChange={(event) => setDays(event.target.value)} /></label>
-        <button className="btn btn-primary" type="submit" disabled={busy}><Send size={16} /> {pp.invite}</button>
+        <button className="btn btn-primary" type="submit" disabled={busy}>
+          {parseEmails(bulkEmails).length > 1 ? <><Users size={16} /> {pp.bulkSend}</> : <><Send size={16} /> {pp.invite}</>}
+        </button>
+        {bulkSummary ? <div className="notice sage small">{bulkSummary}</div> : null}
         {link ? (
           <div className="notice sage stack-sm">
-            <span className="small">{emailSent ? pp.inviteEmailed : pp.inviteCreated}</span>
+            <span className="small">{emailSent ? pp.inviteEmailed : emailAttempted ? pp.inviteMailFailed : pp.inviteCreated}</span>
             <div className="input-group">
               <input className="input" readOnly value={link} onFocus={(event) => event.target.select()} />
               <button className="btn btn-secondary btn-icon" type="button" onClick={() => copy(link)} aria-label={t.common.copy}><Copy size={16} /></button>

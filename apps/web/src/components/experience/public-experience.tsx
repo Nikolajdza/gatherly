@@ -186,8 +186,13 @@ export function PublicExperience({ locale, t, experience: initial, backend, sign
               ))}
             </div>
           ) : (
-            <p style={{ opacity: 0.7, marginTop: 24 }}>{p.emptyGifts}</p>
+            <p style={{ opacity: 0.7, marginTop: 24 }}>
+              {experience.status === "draft" ? p.emptyDraft : p.emptyActive}
+            </p>
           )}
+          {signedIn && !preview && experience.items.some((item) => !item.reserved) ? (
+            <p className="small" style={{ marginTop: 12, fontWeight: 650 }}>{p.guestCtaGifts}</p>
+          ) : null}
           <div className="gift-grid">
             {shown.map((item) => (
               <GiftCard
@@ -218,6 +223,9 @@ export function PublicExperience({ locale, t, experience: initial, backend, sign
           {!signedIn && !preview && experience.items.length > 0 ? (
             <p className="small" style={{ opacity: 0.65, marginTop: 20 }}>{p.signInHint}</p>
           ) : null}
+          {experience.items.length > 0 ? (
+            <p className="small" style={{ opacity: 0.55, marginTop: 16 }}>{p.privacyFeature}</p>
+          ) : null}
         </section>
       ) : null}
 
@@ -232,10 +240,12 @@ export function PublicExperience({ locale, t, experience: initial, backend, sign
       <footer className="xp-footer">
         <p className="script" style={{ margin: 0 }}>{p.madeWithLove}</p>
         <p className="t-heading" style={{ fontSize: 28, margin: "4px 0 22px" }}>{headline.title}</p>
-        {preview ? null : (
-          <Link className="small" href={`/${locale}`} style={{ opacity: 0.6, display: "inline-flex", gap: 6, alignItems: "center" }}>
+        {preview ? null : experience.showWatermark ? (
+          <Link className="small" href={`/${locale}`} style={{ opacity: 0.7, display: "inline-flex", gap: 6, alignItems: "center", fontWeight: 650 }}>
             <Sparkles size={14} /> {p.poweredBy} · {p.createYours}
           </Link>
+        ) : (
+          <span className="small" style={{ opacity: 0.45 }}>{p.createYours}</span>
         )}
       </footer>
 
@@ -482,6 +492,9 @@ function SantaPanel({
             <div className="stack" style={{ marginTop: 8 }}>
               <strong>{s.wishlist}</strong>
               <p className="small" style={{ margin: 0, opacity: 0.75 }}>{s.wishlistLede}</p>
+              {(me?.wishCount ?? 0) < 3 ? (
+                <p className="small" style={{ margin: 0, fontWeight: 650 }}>{p.guestCtaWishes}</p>
+              ) : null}
               {wishes.map((wish, index) => (
                 <input
                   key={index}

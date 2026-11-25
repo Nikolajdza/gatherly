@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { MemberRole } from "@gatherly/shared";
-import { claimInviteSchema, createInviteSchema } from "@gatherly/shared";
+import { claimInviteSchema, createInviteSchema, createInvitesBulkSchema, sendThankYouSchema } from "@gatherly/shared";
 import type { z } from "zod";
 import { toJson } from "../../common/http";
 import { PrismaService } from "../../database/prisma.service";
@@ -13,7 +13,9 @@ import { GuestAccountsService } from "./guest-accounts.service";
 import { createInviteToken, hashInviteToken } from "./tokens";
 
 type CreateInviteInput = z.infer<typeof createInviteSchema>;
+type CreateBulkInput = z.infer<typeof createInvitesBulkSchema>;
 type ClaimInviteInput = z.infer<typeof claimInviteSchema>;
+type SendThankYouInput = z.infer<typeof sendThankYouSchema>;
 
 @Injectable()
 export class InvitationsService {
@@ -69,6 +71,74 @@ export class InvitationsService {
     }
 
     return { ...this.present(invite), token, urlPath, emailSent };
+  }
+
+  async createBulk(experienceId: string, userId: string, input: CreateBulkInput) {
+    await this.permissions.requireRole(experienceId, userId, ["owner", "editor"]);
+    const unique = [...new Set(input.emails.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+    const items = [];
+    for (const email of unique) {
+      items.push(await this.create(experienceId, userId, {
+        role: input.role,
+        email,
+        expiresInDays: input.expiresInDays,
+      }));
+    }
+    return {
+      items,
+      created: items.length,
+      emailed: items.filter((item) => item.emailSent).length,
+    };
+  }
+
+  async sendThankYou(experienceId: string, userId: string, input: SendThankYouInput) {
+    await this.permissions.requireRole(experienceId, userId, ["owner"]);
+    const experience = await this.prisma.experience.findUnique({ where: { id: experienceId } });
+    if (!experience) throw new NotFoundException({ code: "NOT_FOUND", message: "Experience not found." });
+    if (!experience.thankYouMode) {
+      throw new BadRequestException({
+        code: "THANK_YOU_OFF",
+        message: "Turn on thank-you mode before sending notes.",
+      });
+    }
+
+    const reservations = await this.prisma.itemReservation.findMany({
+      where: {
+        status: "active",
+        item: { experienceId },
+      },
+      include: {
+        user: { select: { email: true, displayName: true } },
+        item: { select: { title: true } },
+      },
+    });
+
+    const byEmail = new Map<string, { name: string; gifts: string[] }>();
+    for (const reservation of reservations) {
+      const email = reservation.user.email;
+      if (!email || email.endsWith("@users.gatherly.invalid")) continue;
+      const entry = byEmail.get(email) ?? { name: reservation.user.displayName, gifts: [] };
+      entry.gifts.push(reservation.item.title);
+      byEmail.set(email, entry);
+    }
+
+    if (input.onlyReserved && byEmail.size === 0) {
+      return { sent: 0, recipients: 0 };
+    }
+
+    const url = `${this.mail.webOrigin()}/en/e/${experience.slug}`;
+    let sent = 0;
+    for (const [email, entry] of byEmail) {
+      const personalNote = `${input.note.trim()}\n\n— ${entry.gifts.join(", ")}`;
+      const ok = await this.mail.sendThankYou({
+        to: email,
+        experienceTitle: experience.title,
+        note: personalNote,
+        experienceUrl: url,
+      });
+      if (ok) sent += 1;
+    }
+    return { sent, recipients: byEmail.size };
   }
 
   async revoke(id: string, userId: string) {

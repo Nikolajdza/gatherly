@@ -30,6 +30,13 @@ export const coverLibrary = [
   "/images/auth.jpg",
 ];
 
+/** Prefer template-matched covers first in the design gallery. */
+export function coversForTemplate(template: string) {
+  const preferred = templateImages[template];
+  if (!preferred) return coverLibrary;
+  return [preferred, ...coverLibrary.filter((src) => src !== preferred)];
+}
+
 export const demoTemplates = ["baby-shower", "wedding", "birthday", "secret-santa", "travel"] as const;
 export type DemoTemplate = (typeof demoTemplates)[number];
 

@@ -30,6 +30,14 @@ describe("permissions and privacy", () => {
     const guestView = presentReservation(reservation, { userId: "guest", role: "participant" });
     assert.deepEqual(guestView.reserver, { id: "guest" });
     assert.equal(guestView.note, "surprise");
+
+    const thankYouOwner = presentReservation(reservation, {
+      userId: "owner",
+      role: "owner",
+      thankYouReveal: true,
+    });
+    assert.deepEqual(thankYouOwner.reserver, { id: "guest" });
+    assert.equal(thankYouOwner.id, "res-1");
   });
 });
 

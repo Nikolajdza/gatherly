@@ -15,8 +15,19 @@ const load = cache(async (slug: string) => {
   try {
     return { experience: await client.experiences.bySlug(slug), error: null };
   } catch (error) {
-    if (error instanceof ApiError && (error.status === 404 || error.status === 403)) return { experience: null, error: "missing" as const };
-    return { experience: null, error: "unavailable" as const };
+    if (error instanceof ApiError && (error.status === 404 || error.status === 403)) {
+      return { experience: null, error: "missing" as const };
+    }
+    // Cold-start: one more explicit pause then retry (client already retries 502/503).
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      return { experience: await client.experiences.bySlug(slug), error: null };
+    } catch (retryError) {
+      if (retryError instanceof ApiError && (retryError.status === 404 || retryError.status === 403)) {
+        return { experience: null, error: "missing" as const };
+      }
+      return { experience: null, error: "unavailable" as const };
+    }
   }
 });
 

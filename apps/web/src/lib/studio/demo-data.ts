@@ -100,6 +100,8 @@ function base(template: DemoTemplate, data: Partial<ExperienceDetail> & { title:
     timezone: "Europe/Belgrade",
     coverImageUrl: null,
     role: "owner",
+    thankYouMode: false,
+    showWatermark: true,
     createdAt: now,
     updatedAt: now,
     config: {},

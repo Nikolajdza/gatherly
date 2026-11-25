@@ -24,6 +24,7 @@ async function call<T>(work: () => Promise<T>): Promise<T> {
       if (code === "FETCH_FAILED" || code === "UNSAFE_URL") throw new BackendError("FETCH_FAILED");
       if (code === "IMPOSSIBLE" || code === "SEARCH_EXHAUSTED") throw new BackendError("DRAW_IMPOSSIBLE");
       if (code === "NEED_MORE_PARTICIPANTS") throw new BackendError("NEED_MORE");
+      if (code === "PLAN_LIMIT") throw new BackendError("UNKNOWN", "PLAN_LIMIT");
       if (error.status === 409) throw new BackendError("CONFLICT");
       if (error.status === 503) throw new BackendError("UNAVAILABLE");
       throw new BackendError("UNKNOWN", code ?? undefined);
@@ -58,6 +59,8 @@ export function liveBackend(experienceId: string, client: GatherlyClient = brows
     removeMember: (userId) => call(async () => void (await client.members.remove(id, userId))),
     listInvites: () => call(async () => (await client.invitations.list(id)).items),
     createInvite: (body) => call(() => client.invitations.create(id, body)),
+    createInvitesBulk: (body) => call(() => client.invitations.createBulk(id, body)),
+    sendThankYou: (body) => call(() => client.invitations.sendThankYou(id, body)),
     revokeInvite: (inviteId) => call(async () => void (await client.invitations.revoke(inviteId))),
 
     getSanta: () => call(() => client.secretSanta.get(id)),

@@ -224,8 +224,23 @@ export const updateExperienceSchema = z
     coverImageUrl: httpUrlSchema.nullable().optional(),
     config: z.record(z.unknown()).optional(),
     themeConfig: themeConfigSchema.partial().optional(),
+    thankYouMode: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "No changes.");
+
+export const createInvitesBulkSchema = z.object({
+  role: z.enum(["editor", "participant", "viewer"]),
+  emails: z.array(z.string().trim().email()).min(1).max(40),
+  expiresInDays: z.number().int().min(1).max(90).default(14),
+});
+
+export const sendThankYouSchema = z.object({
+  note: text(2000),
+  onlyReserved: z.boolean().default(true),
+});
+
+/** Soft free-tier cap for active owned experiences. */
+export const FREE_ACTIVE_EXPERIENCE_LIMIT = 2;
 
 export const updateProfileSchema = z.object({
   displayName: text(80),

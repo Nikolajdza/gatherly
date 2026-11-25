@@ -86,10 +86,33 @@ export function getTemplate(id: string): TemplateDefinition | undefined {
   return templates.find((template) => template.id === id);
 }
 
+/** Per-template atmosphere tweaks so pages feel distinct beyond a colour swap. */
+const templateAtmosphere: Record<string, Partial<ThemeConfig>> = {
+  "baby-shower": { font: "serif", decorative: "botanical", radius: "lg", card: "soft" },
+  birthday: { font: "display", decorative: "confetti", radius: "lg", card: "elevated" },
+  wedding: { font: "serif", decorative: "rings", radius: "sm", card: "outlined", primary: "#3f342b", accent: "#b08948" },
+  anniversary: { font: "serif", decorative: "rings", radius: "sm", card: "outlined" },
+  valentines: { font: "serif", decorative: "botanical", radius: "lg", primary: "#8d4a5a", accent: "#e8b4bc" },
+  christmas: { font: "serif", decorative: "snow", radius: "md", card: "elevated", primary: "#1f4d3a", accent: "#9f2d3a" },
+  housewarming: { font: "display", decorative: "botanical", radius: "md", card: "soft", primary: "#5c4a2e", accent: "#c4a574" },
+  graduation: { font: "sans", decorative: "none", radius: "md", card: "outlined", primary: "#1c1917", accent: "#78716c" },
+  "secret-santa": { font: "serif", decorative: "snow", radius: "md", card: "elevated", primary: "#1f4d3a", accent: "#c45c26" },
+  travel: { font: "display", decorative: "none", radius: "lg", card: "elevated", primary: "#0f4c5c", accent: "#e36414" },
+  shopping: { font: "sans", decorative: "none", radius: "md", card: "outlined" },
+  grocery: { font: "sans", decorative: "none", radius: "md", card: "soft", primary: "#2f5d50", accent: "#7aa874" },
+  party: { font: "display", decorative: "confetti", radius: "lg", card: "elevated" },
+};
+
 export function resolveTheme(templateId: string, overrides?: Partial<ThemeConfig>): ThemeConfig {
   const template = getTemplate(templateId);
   const base = themePresets[template?.preset ?? "ink"];
-  return themeConfigSchema.parse({ ...base, ...overrides, preset: overrides?.preset ?? base.preset });
+  const atmosphere = templateAtmosphere[templateId] ?? {};
+  return themeConfigSchema.parse({
+    ...base,
+    ...atmosphere,
+    ...overrides,
+    preset: overrides?.preset ?? base.preset,
+  });
 }
 
 export function parseTemplateConfig(templateId: string, config: unknown) {

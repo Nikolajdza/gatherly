@@ -52,6 +52,7 @@ export class ProfilesService {
     avatarUrl: string | null;
     preferredLanguage: string;
     timezone: string;
+    plan?: "free" | "pro";
   }) {
     const language: Locale = (locales as readonly string[]).includes(profile.preferredLanguage)
       ? (profile.preferredLanguage as Locale)
@@ -63,6 +64,7 @@ export class ProfilesService {
       avatarUrl: profile.avatarUrl,
       preferredLanguage: language,
       timezone: profile.timezone,
+      plan: profile.plan ?? ("free" as const),
     };
   }
 }

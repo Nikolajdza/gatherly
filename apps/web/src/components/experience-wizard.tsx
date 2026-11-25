@@ -70,6 +70,8 @@ export function ExperienceWizard({ locale, dictionary: t }: { locale: Locale; di
     timezone: "Europe/Belgrade",
     coverImageUrl: cover,
     role: "owner",
+    thankYouMode: false,
+    showWatermark: true,
     createdAt: "",
     updatedAt: "",
     config,
@@ -126,7 +128,11 @@ export function ExperienceWizard({ locale, dictionary: t }: { locale: Locale; di
       const created = await browserApi().experiences.create(parsed.data);
       window.location.assign(`/${locale}/dashboard/experiences/${created.id}`);
     } catch (error) {
-      const message = error instanceof Error && error.message ? error.message : t.dash.apiDownText;
+      const body = error && typeof error === "object" && "body" in error ? (error as { body?: { error?: { code?: string; message?: string } } }).body : null;
+      const message =
+        body?.error?.code === "PLAN_LIMIT"
+          ? body.error.message ?? t.settings.planLede
+          : body?.error?.message || (error instanceof Error && error.message ? error.message : t.dash.apiDownText);
       setError(message);
       setBusy(false);
     }

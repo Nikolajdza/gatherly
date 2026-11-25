@@ -104,6 +104,13 @@ enum NotificationType {
   @@map("notification_type")
 }
 
+enum PlanTier {
+  free
+  pro
+
+  @@map("plan_tier")
+}
+
 model Profile {
   id                String   @id @db.Uuid
   email             String   @unique
@@ -111,6 +118,7 @@ model Profile {
   avatarUrl         String?  @map("avatar_url")
   preferredLanguage String   @default("sr") @map("preferred_language")
   timezone          String   @default("Europe/Belgrade")
+  plan              PlanTier @default(free)
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -148,6 +156,7 @@ model Experience {
   coverImageUrl   String?          @map("cover_image_url")
   config          Json             @default("{}")
   themeConfig     Json             @default("{}") @map("theme_config")
+  thankYouMode    Boolean          @default(false) @map("thank_you_mode")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
@@ -275,6 +284,7 @@ model SecretSantaDraw {
   status                DrawStatus @default(open)
   organizerParticipates Boolean    @default(true) @map("organizer_participates")
   drawnAt               DateTime?  @map("drawn_at")
+  deadlineReminderSentAt DateTime? @map("deadline_reminder_sent_at")
   createdAt             DateTime   @default(now()) @map("created_at")
   updatedAt             DateTime   @updatedAt @map("updated_at")
 

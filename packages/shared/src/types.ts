@@ -8,6 +8,8 @@ export type ApiErrorBody = {
   };
 };
 
+export type PlanTier = "free" | "pro";
+
 export type Profile = {
   id: string;
   email: string;
@@ -15,6 +17,7 @@ export type Profile = {
   avatarUrl: string | null;
   preferredLanguage: Locale;
   timezone: string;
+  plan: PlanTier;
 };
 
 export type ExperienceSummary = {
@@ -32,6 +35,9 @@ export type ExperienceSummary = {
   timezone: string;
   coverImageUrl: string | null;
   role: MemberRole | null;
+  thankYouMode: boolean;
+  /** Free plan shows “Made with Gatherly”; Pro hides it. */
+  showWatermark: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -58,6 +64,8 @@ export type PublicItem = {
     status: "active" | "cancelled";
     quantity: number;
     mine: boolean;
+    /** Present when thank-you mode is on and the viewer may see who reserved. */
+    reserverName?: string | null;
   } | null;
 };
 
