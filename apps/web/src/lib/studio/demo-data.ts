@@ -12,7 +12,15 @@ import type { DemoTemplate } from "@/lib/template-media";
 
 export const DEMO_USER_ID = "00000000-0000-4000-8000-000000000001";
 
-export type DemoSanta = Omit<SecretSantaView, "myAssignment"> & {
+export type DemoSantaParticipant = {
+  id: string;
+  userId: string;
+  displayName: string;
+  wishlist: Array<{ title: string; note: string; url: string | null }>;
+};
+
+export type DemoSanta = Omit<SecretSantaView, "myAssignment" | "viewerUserId" | "participants"> & {
+  participants: DemoSantaParticipant[];
   assignments: Array<{ giverId: string; recipientId: string }>;
 };
 

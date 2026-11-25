@@ -435,7 +435,16 @@ function SantaPanel({
   const rules = typeof config.rules === "string" ? config.rules : "";
   const budget = santa?.budgetCents ?? (typeof config.budgetCents === "number" ? config.budgetCents : null);
   const currency = santa?.currency ?? (typeof config.currency === "string" ? config.currency : "EUR");
-  const joined = santa?.participants.some((participant) => participant.userId === currentUserId) ?? false;
+  const meId = santa?.viewerUserId || currentUserId;
+  const me = santa?.participants.find((participant) => participant.userId === meId);
+  const joined = Boolean(me);
+  const locked = santa?.status === "locked";
+  const [wishes, setWishes] = useState<Array<{ title: string; note: string }>>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setWishes((me?.wishlist ?? []).map((wish) => ({ title: wish.title, note: wish.note })));
+  }, [me?.wishlist]);
 
   return (
     <section className="xp-section">
@@ -461,13 +470,55 @@ function SantaPanel({
           ) : (
             <p style={{ margin: 0, opacity: 0.75 }}>{s.myMatchHidden}</p>
           )}
-          {!preview && santa && santa.status === "open" && !joined && backend ? (
+          {!preview && santa && santa.status === "open" && !joined && backend && signedIn ? (
             <button className="t-btn t-btn-primary" type="button" onClick={() => backend.joinSanta().then(onChange).catch(() => toast(t.common.error, "error"))}>
               {p.santaJoin}
             </button>
           ) : null}
           {!signedIn && !preview ? (
             <Link className="t-btn t-btn-primary" href={`/${locale}/login`}>{t.invite.signIn}</Link>
+          ) : null}
+          {!preview && joined && backend ? (
+            <div className="stack" style={{ marginTop: 8 }}>
+              <strong>{s.wishlist}</strong>
+              <p className="small" style={{ margin: 0, opacity: 0.75 }}>{s.wishlistLede}</p>
+              {wishes.map((wish, index) => (
+                <input
+                  key={index}
+                  className="input"
+                  value={wish.title}
+                  placeholder={s.wishTitle}
+                  disabled={locked || saving}
+                  onChange={(event) => setWishes(wishes.map((entry, position) => (position === index ? { ...entry, title: event.target.value } : entry)))}
+                />
+              ))}
+              {!locked ? (
+                <div className="row-start" style={{ flexWrap: "wrap" }}>
+                  <button className="t-btn" type="button" onClick={() => setWishes([...wishes, { title: "", note: "" }])}>{s.wishAdd}</button>
+                  <button
+                    className="t-btn t-btn-primary"
+                    type="button"
+                    disabled={saving}
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        const next = await backend.saveWishlist(
+                          wishes.filter((wish) => wish.title.trim()).map((wish) => ({ title: wish.title.trim(), note: wish.note })),
+                        );
+                        onChange(next);
+                        toast(t.common.saved, "ok");
+                      } catch {
+                        toast(t.common.error, "error");
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    {s.wishSave}
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
         <div className="xp-panel stack">

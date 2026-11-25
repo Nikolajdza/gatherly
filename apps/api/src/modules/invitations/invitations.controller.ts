@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { acceptInviteSchema, createInviteSchema } from "@gatherly/shared";
+import { acceptInviteSchema, claimInviteSchema, createInviteSchema } from "@gatherly/shared";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { parseBody } from "../../common/http";
@@ -42,5 +42,12 @@ export class InvitationsController {
   accept(@CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parseBody(acceptInviteSchema, body);
     return this.invitations.accept(user.id, user.email, input.token);
+  }
+
+  /** Guest path: name + email → membership (+ session for brand-new guests). */
+  @Public()
+  @Post("invitations/claim")
+  claim(@Body() body: unknown) {
+    return this.invitations.claim(parseBody(claimInviteSchema, body));
   }
 }

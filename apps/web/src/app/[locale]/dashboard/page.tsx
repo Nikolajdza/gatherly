@@ -71,6 +71,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
     .sort((a, b) => (a.eventDate ?? "").localeCompare(b.eventDate ?? ""))[0];
 
   const firstName = profile?.displayName ? profile.displayName.split(" ")[0] : "";
+  const isHost = experiences.some((experience) => experience.role === "owner");
 
   return (
     <div className="stack-lg">
@@ -83,7 +84,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
         </div>
         <div className="row-start">
           <Link className="btn btn-glass" href={`/${locale}/demo/baby-shower/admin`}>{d.help}</Link>
-          <Link className="btn btn-primary btn-glow" href={`/${locale}/dashboard/experiences/new`}><Plus size={16} /> {d.create}</Link>
+          {isHost ? (
+            <Link className="btn btn-primary btn-glow" href={`/${locale}/dashboard/experiences/new`}><Plus size={16} /> {d.create}</Link>
+          ) : null}
         </div>
       </Reveal>
 
@@ -105,27 +108,29 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
         </section>
       )}
 
-      <section className="stack">
-        <div className="row">
-          <h2 className="serif h3" style={{ margin: 0 }}>{d.quickStart}</h2>
-          <Link className="link small" href={`/${locale}/dashboard/experiences/new`}>{t.nav.templates} <ArrowRight size={14} /></Link>
-        </div>
-        <div className="tcard-grid compact">
-          {quickStart.map((id) => {
-            const template = templates.find((entry) => entry.id === id);
-            return (
-              <TemplateCard
-                key={id}
-                id={id}
-                compact
-                title={t.templates[id]}
-                kind={template ? t.kinds[template.type] : undefined}
-                href={`/${locale}/dashboard/experiences/new?template=${id}`}
-              />
-            );
-          })}
-        </div>
-      </section>
+      {isHost || experiences.length === 0 ? (
+        <section className="stack">
+          <div className="row">
+            <h2 className="serif h3" style={{ margin: 0 }}>{d.quickStart}</h2>
+            <Link className="link small" href={`/${locale}/dashboard/experiences/new`}>{t.nav.templates} <ArrowRight size={14} /></Link>
+          </div>
+          <div className="tcard-grid compact">
+            {quickStart.map((id) => {
+              const template = templates.find((entry) => entry.id === id);
+              return (
+                <TemplateCard
+                  key={id}
+                  id={id}
+                  compact
+                  title={t.templates[id]}
+                  kind={template ? t.kinds[template.type] : undefined}
+                  href={`/${locale}/dashboard/experiences/new?template=${id}`}
+                />
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

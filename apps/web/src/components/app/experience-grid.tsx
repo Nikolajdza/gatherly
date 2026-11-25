@@ -32,35 +32,49 @@ export function ExperienceGrid({ locale, t, experiences }: { locale: Locale; t: 
         </label>
       </div>
       <div className="xp-grid">
-        {shown.map((experience) => (
-          <article className="card xp-card card-hover" key={experience.id}>
-            <Link href={`/${locale}/dashboard/experiences/${experience.id}`} className="xp-cover">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={coverFor(experience.template, experience.coverImageUrl)} alt="" />
-              <span className="badge">{t.templates[experience.template as keyof Dictionary["templates"]] ?? experience.template}</span>
-              <span className={`badge badge-dot status ${experience.status === "active" ? "badge-sage" : experience.status === "draft" ? "badge-gold" : ""}`}>{t.status[experience.status]}</span>
-            </Link>
-            <div className="xp-body">
-              <h3 className="serif">{experience.title}</h3>
-              <div className="xp-meta">
-                {experience.eventDate ? <span><CalendarDays size={14} /> {formatDate(locale, experience.eventDate, "short")}</span> : null}
-                <span><Users size={14} /> {experience.role ? t.roles[experience.role] : ""}</span>
-                <span>{t.visibility[experience.visibility]}</span>
+        {shown.map((experience) => {
+          const manages = experience.role === "owner" || experience.role === "editor";
+          const primaryHref = manages
+            ? `/${locale}/dashboard/experiences/${experience.id}`
+            : `/${locale}/e/${experience.slug}`;
+          return (
+            <article className="card xp-card card-hover" key={experience.id}>
+              <Link href={primaryHref} className="xp-cover">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={coverFor(experience.template, experience.coverImageUrl)} alt="" />
+                <span className="badge">{t.templates[experience.template as keyof Dictionary["templates"]] ?? experience.template}</span>
+                <span className={`badge badge-dot status ${experience.status === "active" ? "badge-sage" : experience.status === "draft" ? "badge-gold" : ""}`}>{t.status[experience.status]}</span>
+              </Link>
+              <div className="xp-body">
+                <h3 className="serif">{experience.title}</h3>
+                <div className="xp-meta">
+                  {experience.eventDate ? <span><CalendarDays size={14} /> {formatDate(locale, experience.eventDate, "short")}</span> : null}
+                  <span><Users size={14} /> {experience.role ? t.roles[experience.role] : ""}</span>
+                  <span>{t.visibility[experience.visibility]}</span>
+                </div>
               </div>
+              <div className="xp-actions">
+                {manages ? (
+                  <>
+                    <Link className="btn btn-primary btn-sm" href={primaryHref}><Settings2 size={15} /> {d.open}</Link>
+                    <Link className="btn btn-secondary btn-sm" href={`/${locale}/e/${experience.slug}`} target="_blank"><ExternalLink size={15} /> {d.viewPublic}</Link>
+                  </>
+                ) : (
+                  <Link className="btn btn-primary btn-sm" href={primaryHref}><ExternalLink size={15} /> {d.viewPublic}</Link>
+                )}
+              </div>
+            </article>
+          );
+        })}
+        {experiences.some((experience) => experience.role === "owner") ? (
+          <Link className="xp-new" href={`/${locale}/dashboard/experiences/new`}>
+            <div className="stack-sm" style={{ justifyItems: "center" }}>
+              <span className="icon-chip"><Plus size={22} /></span>
+              <strong>{d.create}</strong>
+              <span className="small">{d.emptyText}</span>
             </div>
-            <div className="xp-actions">
-              <Link className="btn btn-primary btn-sm" href={`/${locale}/dashboard/experiences/${experience.id}`}><Settings2 size={15} /> {d.open}</Link>
-              <Link className="btn btn-secondary btn-sm" href={`/${locale}/e/${experience.slug}`} target="_blank"><ExternalLink size={15} /> {d.viewPublic}</Link>
-            </div>
-          </article>
-        ))}
-        <Link className="xp-new" href={`/${locale}/dashboard/experiences/new`}>
-          <div className="stack-sm" style={{ justifyItems: "center" }}>
-            <span className="icon-chip"><Plus size={22} /></span>
-            <strong>{d.create}</strong>
-            <span className="small">{d.emptyText}</span>
-          </div>
-        </Link>
+          </Link>
+        ) : null}
       </div>
     </div>
   );

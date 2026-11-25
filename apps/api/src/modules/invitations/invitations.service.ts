@@ -1,15 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { MemberRole } from "@gatherly/shared";
+import { claimInviteSchema, createInviteSchema } from "@gatherly/shared";
 import type { z } from "zod";
-import { createInviteSchema } from "@gatherly/shared";
+import { toJson } from "../../common/http";
 import { PrismaService } from "../../database/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { MembershipsService } from "../memberships/memberships.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PermissionsService } from "../permissions/permissions.service";
-import { createInviteToken, hashInviteToken, inviteIsUsable } from "./tokens";
+import { GuestAccountsService } from "./guest-accounts.service";
+import { createInviteToken, hashInviteToken } from "./tokens";
 
 type CreateInviteInput = z.infer<typeof createInviteSchema>;
+type ClaimInviteInput = z.infer<typeof claimInviteSchema>;
 
 @Injectable()
 export class InvitationsService {
@@ -19,6 +23,7 @@ export class InvitationsService {
     private readonly memberships: MembershipsService,
     private readonly notifications: NotificationsService,
     private readonly mail: MailService,
+    private readonly guests: GuestAccountsService,
     private readonly config: ConfigService,
   ) {}
 
@@ -81,47 +86,97 @@ export class InvitationsService {
     const invite = await this.findByToken(token);
     const experience = await this.prisma.experience.findUnique({ where: { id: invite.experienceId } });
     if (!experience) throw new NotFoundException({ code: "NOT_FOUND", message: "Invitation not found." });
+    const presented = this.present(invite);
     return {
       experienceTitle: experience.title,
       template: experience.template,
-      role: this.present(invite).role,
-      status: this.present(invite).status,
+      experienceId: experience.id,
+      slug: experience.slug,
+      experienceType: experience.type,
+      role: presented.role,
+      status: presented.status,
       expiresAt: invite.expiresAt.toISOString(),
       emailRestricted: Boolean(invite.email),
+      emailHint: invite.email,
     };
   }
 
   async accept(userId: string, email: string, token: string) {
+    return this.finalizeJoin(userId, email, token);
+  }
+
+  async claim(input: ClaimInviteInput) {
+    const invite = await this.findByToken(input.token);
+    this.assertInviteOpenForClaim(invite);
+
+    const email = input.email.trim().toLowerCase();
+    if (invite.email && invite.email.toLowerCase() !== email) {
+      throw new BadRequestException({
+        code: "INVITE_EMAIL_MISMATCH",
+        message: "This invitation is limited to a different email address.",
+      });
+    }
+
+    const provisioned = await this.guests.provisionGuest(email, input.displayName.trim());
+    const joined = await this.finalizeJoin(provisioned.userId, email, input.token);
+
+    if ("needsSignIn" in provisioned) {
+      return { ...joined, needsSignIn: true as const, session: null };
+    }
+
+    return {
+      ...joined,
+      needsSignIn: false as const,
+      session: {
+        accessToken: provisioned.accessToken,
+        refreshToken: provisioned.refreshToken,
+      },
+    };
+  }
+
+  private async finalizeJoin(userId: string, email: string, token: string) {
     const invite = await this.findByToken(token);
     if (invite.status === "revoked") {
       throw new BadRequestException({ code: "INVITE_REVOKED", message: "This invitation has been revoked." });
     }
-    if (!inviteIsUsable(invite)) {
-      if (invite.status === "pending") {
-        await this.prisma.experienceInvite.update({ where: { id: invite.id }, data: { status: "expired" } });
-      }
+
+    if (invite.status === "pending" && invite.expiresAt.getTime() <= Date.now()) {
+      await this.prisma.experienceInvite.update({ where: { id: invite.id }, data: { status: "expired" } });
       throw new BadRequestException({ code: "INVITE_EXPIRED", message: "This invitation has expired." });
     }
+
     if (invite.email && invite.email.toLowerCase() !== email.toLowerCase()) {
       throw new BadRequestException({
         code: "INVITE_EMAIL_MISMATCH",
         message: "This invitation is limited to a different email address.",
       });
     }
+
+    // Same guest reopening the invite link anytime after accept.
     if (invite.status === "accepted" && invite.acceptedById === userId) {
-      return { experienceId: invite.experienceId };
+      await this.memberships.grant(invite.experienceId, userId, invite.role);
+      await this.ensureParticipation(invite.experienceId, userId, invite.role);
+      return this.joinResult(invite.experienceId, invite.role);
     }
+
+    if (invite.status === "accepted") {
+      throw new BadRequestException({
+        code: "INVITE_CLOSED",
+        message: "This invitation was already used by someone else.",
+      });
+    }
+
     if (invite.status !== "pending") {
       throw new BadRequestException({ code: "INVITE_CLOSED", message: "This invitation can no longer be used." });
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.experienceInvite.update({
-        where: { id: invite.id },
-        data: { status: "accepted", acceptedById: userId },
-      });
+    await this.prisma.experienceInvite.update({
+      where: { id: invite.id },
+      data: { status: "accepted", acceptedById: userId },
     });
     await this.memberships.grant(invite.experienceId, userId, invite.role);
+    await this.ensureParticipation(invite.experienceId, userId, invite.role);
+
     const experience = await this.prisma.experience.findUnique({ where: { id: invite.experienceId } });
     if (experience && experience.ownerId !== userId) {
       await this.notifications.create(experience.ownerId, experience.id, "invitation_accepted", {
@@ -129,10 +184,64 @@ export class InvitationsService {
         title: experience.title,
       });
     }
-    return { experienceId: invite.experienceId };
+
+    return this.joinResult(invite.experienceId, invite.role);
+  }
+
+  private async ensureParticipation(experienceId: string, userId: string, role: MemberRole) {
+    if (role === "viewer") return;
+    const experience = await this.prisma.experience.findUnique({
+      where: { id: experienceId },
+      select: { type: true },
+    });
+    if (experience?.type !== "secret_santa") return;
+
+    const draw = await this.prisma.secretSantaDraw.findUnique({ where: { experienceId } });
+    if (!draw || draw.status !== "open") return;
+
+    await this.prisma.secretSantaParticipant.upsert({
+      where: { drawId_userId: { drawId: draw.id, userId } },
+      create: { drawId: draw.id, userId, wishlist: toJson({ items: [] }) },
+      update: {},
+    });
+  }
+
+  private async joinResult(experienceId: string, role: MemberRole) {
+    const experience = await this.prisma.experience.findUnique({
+      where: { id: experienceId },
+      select: { slug: true },
+    });
+    if (!experience) throw new NotFoundException({ code: "NOT_FOUND", message: "Experience not found." });
+    const normalizedRole = role === "owner" ? "participant" : role;
+    return {
+      experienceId,
+      slug: experience.slug,
+      role: normalizedRole as MemberRole,
+      destination: (normalizedRole === "editor" ? "studio" : "public") as "studio" | "public",
+    };
+  }
+
+  private assertInviteOpenForClaim(invite: { status: string; expiresAt: Date; acceptedById: string | null }) {
+    if (invite.status === "revoked") {
+      throw new BadRequestException({ code: "INVITE_REVOKED", message: "This invitation has been revoked." });
+    }
+    if (invite.status === "pending" && invite.expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException({ code: "INVITE_EXPIRED", message: "This invitation has expired." });
+    }
+    if (invite.status === "accepted") {
+      // Claim is for first-time guests; reopen goes through accept while signed in.
+      throw new BadRequestException({
+        code: "INVITE_ALREADY_ACCEPTED",
+        message: "This invitation was already accepted. Sign in with the same email to reopen it.",
+      });
+    }
+    if (invite.status !== "pending") {
+      throw new BadRequestException({ code: "INVITE_CLOSED", message: "This invitation can no longer be used." });
+    }
   }
 
   private async findByToken(token: string) {
+    if (!token) throw new NotFoundException({ code: "NOT_FOUND", message: "Invitation not found." });
     const invite = await this.prisma.experienceInvite.findUnique({ where: { tokenHash: hashInviteToken(token) } });
     if (!invite) throw new NotFoundException({ code: "NOT_FOUND", message: "Invitation not found." });
     return invite;

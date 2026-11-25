@@ -15,6 +15,8 @@ import type {
   CreatedInvite,
   ExperienceDetail,
   ExperienceSummary,
+  InviteClaimResult,
+  InviteJoinResult,
   InvitePreview,
   InviteRecord,
   MemberRecord,
@@ -102,7 +104,9 @@ export class GatherlyClient {
     preview: (token: string) =>
       this.request<InvitePreview>(`/invitations/preview?token=${encodeURIComponent(token)}`),
     accept: (body: { token: string }) =>
-      this.request<{ experienceId: string }>("/invitations/accept", { method: "POST", body: JSON.stringify(body) }),
+      this.request<InviteJoinResult>("/invitations/accept", { method: "POST", body: JSON.stringify(body) }),
+    claim: (body: { token: string; displayName: string; email: string }) =>
+      this.request<InviteClaimResult>("/invitations/claim", { method: "POST", body: JSON.stringify(body) }),
   };
 
   items = {

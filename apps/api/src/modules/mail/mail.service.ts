@@ -30,7 +30,7 @@ export class MailService {
     const text = [
       `${who} invited you to join “${input.experienceTitle}” on Gatherly.`,
       "",
-      `Open your invitation: ${input.inviteUrl}`,
+      `Open your invitation (you can reuse this link anytime to check the latest status): ${input.inviteUrl}`,
       "",
       "If you weren’t expecting this, you can ignore the email.",
     ].join("\n");
@@ -52,7 +52,7 @@ export class MailService {
             Open invitation
           </a>
           <p style="margin:22px 0 0;font-size:13px;line-height:1.5;color:#6d8578;word-break:break-all;">
-            Or paste this link:<br/>${escapeHtml(input.inviteUrl)}
+            Or paste this link (reuse it anytime to see your match, gifts, or list):<br/>${escapeHtml(input.inviteUrl)}
           </p>
         </td></tr>
       </table>

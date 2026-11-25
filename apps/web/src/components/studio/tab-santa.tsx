@@ -3,12 +3,15 @@
 import { currencies, type AiTone, type SantaGiftIdea, type SecretSantaView } from "@gatherly/shared";
 import { Ban, Dices, Gift, Lightbulb, Loader2, Lock, MessageCircleHeart, Plus, ShieldCheck, Sparkles, Trash2, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSessionUser } from "@/components/auth-provider";
 import { BackendError } from "@/lib/studio/backend";
 import { AiChip, AiDemoNote, CopyButton, ToneSelect, useAi } from "./ai-kit";
 import type { StudioContext } from "./studio";
 
 export function SantaTab({ ctx }: { ctx: StudioContext }) {
   const { t, backend } = ctx;
+  const session = useSessionUser();
+  const viewerId = session?.id ?? ctx.experience.ownerId;
   const s = t.studio.santa;
   const [santa, setSanta] = useState<SecretSantaView | null>(null);
   const [budget, setBudget] = useState("");
@@ -29,14 +32,12 @@ export function SantaTab({ ctx }: { ctx: StudioContext }) {
     setDrawDate(view.drawDate ?? "");
     setDeadline(view.purchaseDeadline ?? "");
     setOrganizerParticipates(view.organizerParticipates);
+    const me = view.participants.find((participant) => participant.userId === (view.viewerUserId || viewerId));
+    setWishes((me?.wishlist ?? []).map((wish) => ({ title: wish.title, note: wish.note })));
   }
 
   useEffect(() => {
-    backend.getSanta().then((view) => {
-      apply(view);
-      const me = view.participants.find((participant) => participant.userId === ctx.experience.ownerId && ctx.isOwner);
-      setWishes((me?.wishlist ?? []).map((wish) => ({ title: wish.title, note: wish.note })));
-    }).catch(ctx.fail);
+    backend.getSanta().then(apply).catch(ctx.fail);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backend]);
 
@@ -59,9 +60,11 @@ export function SantaTab({ ctx }: { ctx: StudioContext }) {
 
   const open = santa.status === "open";
   const locked = santa.status === "locked";
+  const meId = santa.viewerUserId || viewerId;
   const name = (id: string) => santa.participants.find((participant) => participant.id === id)?.displayName ?? "?";
-  const myParticipant = santa.participants.find((participant) => participant.userId === ctx.experience.ownerId);
-  const joined = Boolean(myParticipant) && ctx.isOwner;
+  const myParticipant = santa.participants.find((participant) => participant.userId === meId);
+  const joined = Boolean(myParticipant);
+  const canParticipate = ctx.experience.role !== "viewer";
 
   return (
     <div className="studio-grid wide-right">
@@ -105,7 +108,11 @@ export function SantaTab({ ctx }: { ctx: StudioContext }) {
             <h3 className="h4">{s.participants}</h3>
             <div className="row-start">
               <span className="badge">{santa.participants.length}</span>
-              {open && !joined && ctx.isOwner ? <button className="btn btn-secondary btn-sm" type="button" disabled={busy} onClick={() => act(() => backend.joinSanta())}><UserPlus size={15} /> {s.join}</button> : null}
+              {open && !joined && canParticipate ? (
+                <button className="btn btn-secondary btn-sm" type="button" disabled={busy} onClick={() => act(() => backend.joinSanta())}>
+                  <UserPlus size={15} /> {s.join}
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="list" style={{ borderTop: "1px solid var(--line)" }}>
@@ -113,47 +120,60 @@ export function SantaTab({ ctx }: { ctx: StudioContext }) {
               <div className="list-row" key={participant.id}>
                 <span className="avatar">{participant.displayName.slice(0, 1)}</span>
                 <div className="grow">
-                  <div className="title">{participant.displayName}{participant.userId === ctx.experience.ownerId && ctx.isOwner ? <span className="faint"> · {t.studio.people.you}</span> : null}</div>
-                  <div className="sub"><Gift size={12} /> {participant.wishlist.length}</div>
+                  <div className="title">
+                    {participant.displayName}
+                    {participant.userId === meId ? <span className="faint"> · {t.studio.people.you}</span> : null}
+                  </div>
+                  <div className="sub"><Gift size={12} /> {participant.wishCount}</div>
                 </div>
-                {ctx.isOwner && open ? (
-                  <button className="icon-btn danger" type="button" disabled={busy} onClick={() => act(() => backend.leaveSanta(participant.id))} aria-label={s.leave}><X size={16} /></button>
+                {open && (ctx.isOwner || participant.userId === meId) ? (
+                  <button
+                    className="icon-btn danger"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => act(() => backend.leaveSanta(participant.id))}
+                    aria-label={s.leave}
+                  >
+                    <X size={16} />
+                  </button>
                 ) : null}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="card card-pad stack">
-          <div>
-            <h3 className="h4" style={{ margin: 0 }}><Ban size={17} /> {s.exclusions}</h3>
-            <p className="muted small" style={{ margin: "6px 0 0" }}>{s.exclusionsLede}</p>
+        {ctx.canManage ? (
+          <div className="card card-pad stack">
+            <div>
+              <h3 className="h4" style={{ margin: 0 }}><Ban size={17} /> {s.exclusions}</h3>
+              <p className="muted small" style={{ margin: "6px 0 0" }}>{s.exclusionsLede}</p>
+            </div>
+            {santa.exclusions.map((rule) => (
+              <div className="row" key={rule.id} style={{ padding: "10px 14px", borderRadius: 14, background: "var(--paper)", border: "1px solid var(--line)" }}>
+                <span><strong>{name(rule.participantAId)}</strong> <span className="faint">↔ {s.cannotDraw} ↔</span> <strong>{name(rule.participantBId)}</strong></span>
+                {ctx.isOwner && !locked ? <button className="icon-btn danger" type="button" onClick={() => act(() => backend.removeExclusion(rule.id))} aria-label={t.common.delete}><Trash2 size={15} /></button> : null}
+              </div>
+            ))}
+            {ctx.isOwner && !locked ? (
+              <div className="input-group" style={{ flexWrap: "wrap" }}>
+                <select className="input" value={ruleA} onChange={(event) => setRuleA(event.target.value)} style={{ flex: 1, minWidth: 120 }}>
+                  <option value="">—</option>
+                  {santa.participants.map((participant) => <option key={participant.id} value={participant.id}>{participant.displayName}</option>)}
+                </select>
+                <select className="input" value={ruleB} onChange={(event) => setRuleB(event.target.value)} style={{ flex: 1, minWidth: 120 }}>
+                  <option value="">—</option>
+                  {santa.participants.filter((participant) => participant.id !== ruleA).map((participant) => <option key={participant.id} value={participant.id}>{participant.displayName}</option>)}
+                </select>
+                <button className="btn btn-secondary" type="button" disabled={!ruleA || !ruleB || busy} onClick={() => act(async () => {
+                  const view = await backend.addExclusion(ruleA, ruleB);
+                  setRuleA("");
+                  setRuleB("");
+                  return view;
+                })}><Plus size={16} /> {s.addRule}</button>
+              </div>
+            ) : null}
           </div>
-          {santa.exclusions.map((rule) => (
-            <div className="row" key={rule.id} style={{ padding: "10px 14px", borderRadius: 14, background: "var(--paper)", border: "1px solid var(--line)" }}>
-              <span><strong>{name(rule.participantAId)}</strong> <span className="faint">↔ {s.cannotDraw} ↔</span> <strong>{name(rule.participantBId)}</strong></span>
-              {ctx.isOwner && !locked ? <button className="icon-btn danger" type="button" onClick={() => act(() => backend.removeExclusion(rule.id))} aria-label={t.common.delete}><Trash2 size={15} /></button> : null}
-            </div>
-          ))}
-          {ctx.isOwner && !locked ? (
-            <div className="input-group" style={{ flexWrap: "wrap" }}>
-              <select className="input" value={ruleA} onChange={(event) => setRuleA(event.target.value)} style={{ flex: 1, minWidth: 120 }}>
-                <option value="">—</option>
-                {santa.participants.map((participant) => <option key={participant.id} value={participant.id}>{participant.displayName}</option>)}
-              </select>
-              <select className="input" value={ruleB} onChange={(event) => setRuleB(event.target.value)} style={{ flex: 1, minWidth: 120 }}>
-                <option value="">—</option>
-                {santa.participants.filter((participant) => participant.id !== ruleA).map((participant) => <option key={participant.id} value={participant.id}>{participant.displayName}</option>)}
-              </select>
-              <button className="btn btn-secondary" type="button" disabled={!ruleA || !ruleB || busy} onClick={() => act(async () => {
-                const view = await backend.addExclusion(ruleA, ruleB);
-                setRuleA("");
-                setRuleB("");
-                return view;
-              })}><Plus size={16} /> {s.addRule}</button>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
 
         {ctx.canManage ? <InviteMessage ctx={ctx} /> : null}
       </div>

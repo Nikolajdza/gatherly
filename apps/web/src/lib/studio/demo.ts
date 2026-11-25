@@ -10,7 +10,7 @@ import {
   demoThankYouNotes,
   demoTidy,
 } from "./demo-ai";
-import { DEMO_USER_ID, demoCatalog, demoId, seedDemo, type DemoState } from "./demo-data";
+import { DEMO_USER_ID, demoCatalog, demoId, seedDemo, type DemoSanta, type DemoState } from "./demo-data";
 
 const storageKey = (template: DemoTemplate) => `gatherly-demo:v2:${template}`;
 
@@ -65,6 +65,12 @@ function santaView(state: DemoState): SecretSantaView {
   const recipient = mine ? santa.participants.find((participant) => participant.id === mine.recipientId) : undefined;
   return {
     ...view,
+    viewerUserId: DEMO_USER_ID,
+    participants: santa.participants.map((participant) => ({
+      ...participant,
+      wishCount: participant.wishlist.length,
+      wishlist: participant.userId === DEMO_USER_ID ? participant.wishlist : [],
+    })),
     myAssignment: recipient
       ? { recipientParticipantId: recipient.id, displayName: recipient.displayName, wishlist: recipient.wishlist }
       : null,
@@ -229,7 +235,13 @@ export function demoBackend(template: DemoTemplate): StudioBackend {
       mutate((draft) => {
         const santa = requireOpenSanta(draft);
         if (!santa.participants.some((participant) => participant.userId === DEMO_USER_ID)) {
-          santa.participants.push({ id: demoId("p"), userId: DEMO_USER_ID, displayName: "You", wishlist: [] });
+          const newbie: DemoSanta["participants"][number] = {
+            id: demoId("p"),
+            userId: DEMO_USER_ID,
+            displayName: "You",
+            wishlist: [],
+          };
+          santa.participants.push(newbie);
         }
         return santaView(draft);
       }),

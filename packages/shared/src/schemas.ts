@@ -244,6 +244,13 @@ export const acceptInviteSchema = z.object({
   token: z.string().trim().min(20).max(200),
 });
 
+/** Guest joins with name + email — no full product registration / password. */
+export const claimInviteSchema = z.object({
+  token: z.string().trim().min(20).max(200),
+  displayName: text(80),
+  email: z.string().trim().email().max(200),
+});
+
 export const updateMemberSchema = z.object({
   role: z.enum(["editor", "participant", "viewer"]),
 });

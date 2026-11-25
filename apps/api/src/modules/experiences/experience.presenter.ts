@@ -129,9 +129,12 @@ export function canReadExperience(
   experience: Pick<StoredExperience, "status" | "visibility">,
   role: ExperienceSummary["role"],
 ): boolean {
-  if (experience.status === "archived" || experience.status === "draft") {
+  if (experience.status === "archived") {
     return role === "owner" || role === "editor";
   }
+  // Invited members can always reopen their experience (including draft while the host prepares).
+  if (role !== null) return true;
+  if (experience.status === "draft") return false;
   if (experience.visibility === "public" || experience.visibility === "unlisted") return true;
-  return role !== null;
+  return false;
 }

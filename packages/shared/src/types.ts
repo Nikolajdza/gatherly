@@ -89,10 +89,28 @@ export type InviteRecord = {
 export type InvitePreview = {
   experienceTitle: string;
   template: string;
+  experienceId: string;
+  slug: string;
+  experienceType: ExperienceType;
   role: Exclude<MemberRole, "owner">;
   status: InviteRecord["status"];
   expiresAt: string;
   emailRestricted: boolean;
+  /** Locked invite email when set (for the guest form). */
+  emailHint: string | null;
+};
+
+export type InviteJoinResult = {
+  experienceId: string;
+  slug: string;
+  role: MemberRole;
+  /** Studio for owners/editors; public page for guests. */
+  destination: "studio" | "public";
+};
+
+export type InviteClaimResult = InviteJoinResult & {
+  needsSignIn: boolean;
+  session: { accessToken: string; refreshToken: string } | null;
 };
 
 export type CreatedInvite = InviteRecord & { token: string; urlPath: string; emailSent?: boolean };
@@ -105,11 +123,15 @@ export type SecretSantaView = {
   drawDate: string | null;
   purchaseDeadline: string | null;
   organizerParticipates: boolean;
+  /** Current viewer — used by the UI to find “me” among participants. */
+  viewerUserId: string;
   participants: Array<{
     id: string;
     userId: string;
     displayName: string;
+    /** Full wishlist only for the current user; others get a count via wishlist length 0 + wishCount. */
     wishlist: Array<{ title: string; note: string; url: string | null }>;
+    wishCount: number;
   }>;
   exclusions: Array<{ id: string; participantAId: string; participantBId: string }>;
   myAssignment: {

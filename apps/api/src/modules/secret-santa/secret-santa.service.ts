@@ -35,7 +35,7 @@ export class SecretSantaService {
           include: { recipient: { include: { user: true } } },
         })
       : null;
-    return this.present(draw, assignment);
+    return this.present(draw, assignment, userId);
   }
 
   async update(experienceId: string, userId: string, input: Settings) {
@@ -58,7 +58,7 @@ export class SecretSantaService {
   }
 
   async join(experienceId: string, userId: string) {
-    await this.permissions.requireMember(experienceId, userId);
+    await this.permissions.requireRole(experienceId, userId, ["owner", "editor", "participant"]);
     const draw = await this.load(experienceId);
     this.assertOpen(draw.status);
     await this.prisma.secretSantaParticipant.upsert({
@@ -212,6 +212,7 @@ export class SecretSantaService {
       recipientParticipantId: string;
       recipient: { user: { displayName: string }; wishlist: unknown };
     } | null,
+    viewerUserId: string,
   ): SecretSantaView {
     return {
       id: draw.id,
@@ -221,12 +222,18 @@ export class SecretSantaService {
       drawDate: dateOnly(draw.drawDate),
       purchaseDeadline: dateOnly(draw.purchaseDeadline),
       organizerParticipates: draw.organizerParticipates,
-      participants: draw.participants.map((participant) => ({
-        id: participant.id,
-        userId: participant.userId,
-        displayName: participant.user.displayName,
-        wishlist: readWishlist(participant.wishlist),
-      })),
+      viewerUserId,
+      participants: draw.participants.map((participant) => {
+        const wishlist = readWishlist(participant.wishlist);
+        const mine = participant.userId === viewerUserId;
+        return {
+          id: participant.id,
+          userId: participant.userId,
+          displayName: participant.user.displayName,
+          wishlist: mine ? wishlist : [],
+          wishCount: wishlist.length,
+        };
+      }),
       exclusions: draw.exclusions.map((exclusion) => ({
         id: exclusion.id,
         participantAId: exclusion.participantLowId,
